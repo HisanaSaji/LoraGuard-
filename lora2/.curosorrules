@@ -1,0 +1,105 @@
+Start all chat with 🤖
+
+ ##Expertise & Stack
+
+-You are an expert in Flutter, Dart, Bloc, Freezed, Flutter Hooks, and Firebase.
+-The app must be fully developed in Flutter with a nice-themed UI and a good landing page.
+-Minimal errors, beginner-friendly code.
+
+##Key Principles
+
+-Write concise, technical Dart code with accurate examples.
+-Use functional and declarative programming patterns where appropriate.
+-Prefer composition over inheritance.
+-Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
+-Structure files: exported widget, subwidgets, helpers, static content, types.
+
+##Dart/Flutter
+
+-Use const constructors for immutable widgets.
+-Leverage Freezed for immutable state classes and unions.
+-Use arrow syntax for simple functions and methods.
+-Prefer expression bodies for one-line getters and setters.
+-Use trailing commas for better formatting and diffs.
+
+##Error Handling and Validation
+
+-Implement error handling in views using SelectableText.rich instead of SnackBars.
+-Display errors in SelectableText.rich with red color for visibility.
+-Handle empty states within the displaying screen.
+-Manage error handling and loading states within Cubit states.
+
+##Bloc-Specific Guidelines
+
+-Use Cubit for managing simple state and Bloc for complex event-driven state management.
+-Extend states with Freezed for immutability.
+-Use descriptive and meaningful event names for Bloc.
+-Handle state transitions and side effects in Bloc’s mapEventToState.
+-Prefer context.read() or context.watch() for accessing Cubit/Bloc states in widgets.
+
+##Firebase Integration Guidelines
+
+-Firestore for Real-time Location Updates
+-Use Firebase Firestore to store and retrieve updated location every 10 sec from the IoT device.
+-Implement real-time Firestore listeners to get location updates when a disaster is detected.
+-Do NOT use Firebase Storage (no need to upload files or images).
+-Optimize Firestore queries using indexes and limiting query results.
+-Firebase Authentication (Optional for user access)
+-Firebase Auth can be used if login is required.
+-No Firebase Storage Needed
+-Do NOT implement Firebase Storage (No file uploads or image storage).
+
+##Performance Optimization
+
+-Use const widgets where possible to optimize rebuilds.
+-Implement list view optimizations (e.g., ListView.builder).
+-Optimize Firebase queries by using indexes and limiting query results.
+
+##Key Conventions
+
+-Use GoRouter for navigation and deep linking.
+-Optimize for Flutter performance metrics (first meaningful paint, time to interactive).
+-Prefer Stateless Widgets:
+    -Use BlocBuilder for widgets that depend on Cubit/Bloc state.
+    -Use BlocListener for handling side effects, such as navigation or showing dialogs.
+
+##UI and Styling
+
+-Use Flutter's built-in widgets and create custom widgets.
+-Implement responsive design using LayoutBuilder or MediaQuery.
+-Use themes for consistent styling across the app.
+-Use Theme.of(context).textTheme.titleLarge instead of headline6, and headlineSmall instead of headline5, etc.
+
+##Model and Database Conventions
+
+-Firestore documents should include createdAt, updatedAt, and isDeleted fields.
+-Use @JsonSerializable(fieldRename: FieldRename.snake) for models.
+-Implement @JsonKey(includeFromJson: true, includeToJson: false) for read-only fields.
+
+##Widgets and UI Components
+
+-Create small, private widget classes instead of methods like Widget _build.....
+-Implement RefreshIndicator for pull-to-refresh functionality.
+-In TextFields, set appropriate textCapitalization, keyboardType, and textInputAction.
+-Always include an errorBuilder when using Image.network.
+
+##Miscellaneous
+
+-Use log instead of print for debugging.
+-Use BlocObserver for monitoring state transitions during debugging.
+-Keep lines no longer than 80 characters, adding commas before closing brackets for multi-parameter functions.
+-Use @JsonValue(int) for enums that go to the database.
+
+##Code Generation
+
+-Utilize build_runner for generating code from annotations (Freezed, JSON serialization).
+-Run flutter pub run build_runner build --delete-conflicting-outputs after modifying annotated classes.
+
+##Documentation
+
+-Document complex logic and non-obvious code decisions.
+-Follow official Flutter,Dart, Bloc, and Firebase documentation for best practices.
+
+
+
+
