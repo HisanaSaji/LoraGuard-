@@ -11,14 +11,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'LoRaGuard',
       theme: ThemeData(
-        primaryColor: const Color(0xFF4285F4),
-        scaffoldBackgroundColor: const Color(0xFF4285F4),
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF0F2F5),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4285F4),
-          primary: const Color(0xFF4285F4),
+          seedColor: Colors.blue,
+          primary: Colors.blue,
         ),
       ),
       home: const DashboardScreen(),
