@@ -1,3 +1,4 @@
+// Emergency Screen - Design Mode (Prototype)
 import 'package:flutter/material.dart';
 import 'package:lora2/core/theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
