@@ -35,15 +35,6 @@ class EmergencyScreen extends StatelessWidget {
               const SizedBox(height: 16),
               _buildEmergencyCard(
                 context,
-                'Send SOS',
-                '🚨',
-                'Send your location to emergency contacts',
-                Colors.red,
-                onTap: () => _sendSOS(context),
-              ),
-              const SizedBox(height: 16),
-              _buildEmergencyCard(
-                context,
                 'Emergency Contacts',
                 '📋',
                 'View and manage emergency contacts',
@@ -134,16 +125,6 @@ class EmergencyScreen extends StatelessWidget {
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
     }
-  }
-
-  void _sendSOS(BuildContext context) {
-    // TODO: Implement SOS functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Sending SOS signal with your location...'),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
 
   void _viewEmergencyContacts(BuildContext context) {

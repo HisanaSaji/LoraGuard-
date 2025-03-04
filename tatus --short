@@ -1,0 +1,5 @@
+[33mcommit 3dcb2d2eacfae2e3b56bd49ebae98049f8355aa1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: Hisana Saji <hisanasaji444@gmail.com>
+Date:   Sun Mar 2 23:46:56 2025 +0530
+
+    Create LoRaGuard UI with alerts display, mock repository, and BLoC pattern implementation

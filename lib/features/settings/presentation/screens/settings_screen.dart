@@ -1,21 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:lora2/core/theme/app_theme.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _notificationsEnabled = true;
+  String _selectedAlertType = 'Sound';
+  bool _isDarkMode = true;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.pureBlack,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 24),
-            _buildDeviceConfiguration(context),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 24),
+              _buildNotificationPreferences(),
+              const SizedBox(height: 32),
+              _buildAppearanceSettings(),
+            ],
+          ),
         ),
       ),
     );
@@ -53,14 +66,14 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDeviceConfiguration(BuildContext context) {
+  Widget _buildNotificationPreferences() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
-            'Device Configuration',
+            'Notification Preferences',
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -70,52 +83,129 @@ class SettingsScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _buildSettingCard(
-          title: 'LoRa Connection Status',
-          icon: Icons.wifi_tethering,
-          color: Colors.green,
+          title: 'Enable Notifications',
+          icon: Icons.notifications_rounded,
+          color: Colors.blue,
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Colors.green,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
               const Text(
-                'Connected',
+                'Receive alert notifications',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 16,
                 ),
+              ),
+              Switch(
+                value: _notificationsEnabled,
+                onChanged: (value) {
+                  setState(() {
+                    _notificationsEnabled = value;
+                  });
+                },
+                activeColor: Colors.blue,
+                activeTrackColor: Colors.blue.withOpacity(0.3),
+                inactiveThumbColor: Colors.grey,
+                inactiveTrackColor: Colors.grey.withOpacity(0.3),
               ),
             ],
           ),
         ),
         const SizedBox(height: 16),
         _buildSettingCard(
-          title: 'Sensor Calibration',
-          icon: Icons.sensors,
-          color: AppTheme.primaryOrange,
-          child: ElevatedButton(
-            onPressed: () => _showResetConfirmation(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryOrange,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+          title: 'Alert Type',
+          icon: Icons.volume_up_rounded,
+          color: Colors.purple,
+          child: Column(
+            children: [
+              _buildAlertTypeOption('Sound', Icons.volume_up_rounded),
+              const Divider(color: Colors.white10, height: 1),
+              _buildAlertTypeOption('Vibration', Icons.vibration_rounded),
+              const Divider(color: Colors.white10, height: 1),
+              _buildAlertTypeOption('Silent', Icons.notifications_off_rounded),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAlertTypeOption(String type, IconData icon) {
+    final isSelected = _selectedAlertType == type;
+    
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedAlertType = type;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12.0),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.purple : Colors.white54,
+              size: 20,
             ),
-            child: const Text(
-              'Reset Sensor',
+            const SizedBox(width: 12),
+            Text(
+              type,
               style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white70,
                 fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
+            const Spacer(),
+            if (isSelected)
+              const Icon(
+                Icons.check_rounded,
+                color: Colors.purple,
+                size: 20,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppearanceSettings() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'Appearance',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSettingCard(
+          title: 'Dark Mode',
+          icon: _isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+          color: Colors.amber,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Switch(
+                value: _isDarkMode,
+                onChanged: (value) {
+                  setState(() {
+                    _isDarkMode = value;
+                  });
+                },
+                activeColor: Colors.amber,
+                activeTrackColor: Colors.amber.withOpacity(0.3),
+                inactiveThumbColor: Colors.grey,
+                inactiveTrackColor: Colors.grey.withOpacity(0.3),
+              ),
+            ],
           ),
         ),
       ],
@@ -169,71 +259,6 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           child,
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showResetConfirmation(BuildContext context) async {
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkGrey,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text(
-          'Reset Sensor',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: const Text(
-          'Are you sure you want to reset the sensor? This will recalibrate all sensors to their default settings.',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 16,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 16,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement sensor reset
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Sensor reset initiated'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryOrange,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              'Reset',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
         ],
       ),
     );
