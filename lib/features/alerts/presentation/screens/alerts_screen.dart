@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lora2/core/theme/app_theme.dart';
 import 'package:lora2/features/alerts/presentation/cubit/alert_cubit.dart';
 import 'package:lora2/features/alerts/presentation/cubit/alert_state.dart';
 import 'package:lora2/features/alerts/presentation/widgets/alert_card.dart';
@@ -10,7 +11,7 @@ class AlertsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: AppTheme.pureBlack,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -20,7 +21,6 @@ class AlertsScreen extends StatelessWidget {
             Expanded(
               child: _buildAlertsList(),
             ),
-            _buildBottomNavBar(),
           ],
         ),
       ),
@@ -36,7 +36,7 @@ class AlertsScreen extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: Colors.blue,
+              color: AppTheme.primaryOrange,
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
@@ -49,12 +49,24 @@ class AlertsScreen extends StatelessWidget {
           const Text(
             'LoRaGuard',
             style: TextStyle(
+              color: Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
           const Spacer(),
-          const Icon(Icons.notifications_outlined, size: 28),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.darkGrey,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.notifications_outlined,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
         ],
       ),
     );
@@ -68,19 +80,13 @@ class AlertsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.primaryOrange,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: const Text(
               'Active Alerts',
               style: TextStyle(
+                color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -88,17 +94,17 @@ class AlertsScreen extends StatelessWidget {
           const Spacer(),
           Row(
             children: [
-              const Text(
+              Text(
                 'View All',
                 style: TextStyle(
-                  color: Colors.blue,
+                  color: AppTheme.primaryOrange,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.arrow_forward,
                 size: 16,
-                color: Colors.blue,
+                color: AppTheme.primaryOrange,
               ),
             ],
           ),
@@ -111,8 +117,10 @@ class AlertsScreen extends StatelessWidget {
     return BlocBuilder<AlertCubit, AlertState>(
       builder: (context, state) {
         if (state.isLoading) {
-          return const Center(
-            child: CircularProgressIndicator(),
+          return Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryOrange),
+            ),
           );
         }
 
@@ -140,11 +148,16 @@ class AlertsScreen extends StatelessWidget {
 
         if (state.alerts.isEmpty) {
           return const Center(
-            child: Text('No alerts found'),
+            child: Text(
+              'No alerts found',
+              style: TextStyle(color: Colors.white70),
+            ),
           );
         }
 
         return RefreshIndicator(
+          color: AppTheme.primaryOrange,
+          backgroundColor: AppTheme.darkGrey,
           onRefresh: () => context.read<AlertCubit>().loadActiveAlerts(),
           child: ListView.separated(
             padding: const EdgeInsets.all(16),
@@ -162,46 +175,6 @@ class AlertsScreen extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildBottomNavBar() {
-    return Container(
-      height: 60,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            blurRadius: 6,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildNavItem(Icons.grid_view, true),
-          _buildNavItem(Icons.notifications_outlined, false),
-          _buildNavItem(Icons.map_outlined, false),
-          _buildNavItem(Icons.settings_outlined, false),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, bool isSelected) {
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        color: isSelected ? Colors.grey[200] : Colors.transparent,
-        shape: BoxShape.circle,
-      ),
-      child: Icon(
-        icon,
-        color: isSelected ? Colors.blue : Colors.grey,
-      ),
     );
   }
 } 

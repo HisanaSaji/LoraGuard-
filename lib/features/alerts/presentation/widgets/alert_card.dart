@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lora2/core/models/alert_model.dart';
+import 'package:lora2/core/theme/app_theme.dart';
 
 class AlertCard extends StatelessWidget {
   final AlertModel alert;
@@ -18,11 +19,11 @@ class AlertCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.darkGrey,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.black.withOpacity(0.2),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -55,6 +56,7 @@ class AlertCard extends StatelessWidget {
                       Text(
                         _getAlertTypeText(),
                         style: const TextStyle(
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -62,7 +64,7 @@ class AlertCard extends StatelessWidget {
                       Text(
                         alert.location,
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color: Colors.grey[400],
                           fontSize: 14,
                         ),
                       ),
@@ -90,7 +92,7 @@ class AlertCard extends StatelessWidget {
               Text(
                 alert.description,
                 style: TextStyle(
-                  color: Colors.grey[800],
+                  color: Colors.grey[300],
                   fontSize: 14,
                 ),
                 maxLines: 2,
@@ -100,13 +102,13 @@ class AlertCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.grey[200],
+                  color: Colors.black.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   _formatTimestamp(alert.timestamp),
                   style: TextStyle(
-                    color: Colors.grey[700],
+                    color: Colors.grey[400],
                     fontSize: 12,
                   ),
                 ),
@@ -128,11 +130,11 @@ class AlertCard extends StatelessWidget {
       case AlertSeverity.low:
         return Colors.green;
       case AlertSeverity.medium:
-        return Colors.orange;
+        return AppTheme.primaryOrange;
       case AlertSeverity.high:
-        return Colors.blue;
+        return AppTheme.primaryOrange;
       case AlertSeverity.critical:
-        return Colors.red;
+        return AppTheme.primaryOrange;
     }
   }
 
@@ -169,15 +171,15 @@ class AlertCard extends StatelessWidget {
   Color _getAlertTypeColor() {
     switch (alert.type) {
       case AlertType.flood:
-        return Colors.blue;
+        return AppTheme.primaryOrange;
       case AlertType.earthquake:
-        return Colors.red;
+        return AppTheme.primaryOrange;
       case AlertType.hurricane:
-        return Colors.orange;
+        return AppTheme.primaryOrange;
       case AlertType.wildfire:
-        return Colors.deepOrange;
+        return AppTheme.primaryOrange;
       case AlertType.tornado:
-        return Colors.purple;
+        return AppTheme.primaryOrange;
       case AlertType.other:
         return Colors.grey;
     }
