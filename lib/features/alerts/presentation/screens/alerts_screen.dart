@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lora2/core/services/weather_service.dart';
 import 'package:lora2/core/theme/app_theme.dart';
 import 'package:lora2/core/config/env_config.dart';
+import 'package:lora2/core/navigation/app_navigation.dart';
 import 'package:lora2/features/alerts/presentation/cubit/alert_cubit.dart';
 import 'package:lora2/features/alerts/presentation/cubit/alert_state.dart';
 import 'package:lora2/features/alerts/presentation/widgets/alert_card.dart';
@@ -253,7 +254,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
                 child: AlertCard(
                   alert: alert,
                   onTap: () {
-                    // Navigate to alert details
+                    // Navigate to the map tab when alert is tapped
+                    context.read<NavigationCubit>().setTab(NavigationTab.map);
                   },
                 ),
               );
