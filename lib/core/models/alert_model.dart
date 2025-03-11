@@ -1,51 +1,68 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
+class AlertModel {
+  final String id;
+  final String location;
+  final String description;
+  final DateTime timestamp;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final bool isDeleted;
 
-part 'alert_model.freezed.dart';
-part 'alert_model.g.dart';
+  AlertModel({
+    required this.id,
+    required this.location,
+    required this.description,
+    required this.timestamp,
+    this.createdAt,
+    this.updatedAt,
+    this.isDeleted = false,
+  });
 
-enum AlertSeverity {
-  @JsonValue(0)
-  low,
-  @JsonValue(1)
-  medium,
-  @JsonValue(2)
-  high,
-  @JsonValue(3)
-  critical,
-}
-
-enum AlertType {
-  @JsonValue(0)
-  flood,
-  @JsonValue(1)
-  earthquake,
-  @JsonValue(2)
-  hurricane,
-  @JsonValue(3)
-  wildfire,
-  @JsonValue(4)
-  tornado,
-  @JsonValue(5)
-  other,
-}
-
-@freezed
-class AlertModel with _$AlertModel {
-  const factory AlertModel({
-    required String id,
-    required AlertType type,
-    required String location,
-    required String description,
-    required DateTime timestamp,
-    required AlertSeverity severity,
-    @JsonKey(includeFromJson: true, includeToJson: false)
+  // Create a copy with some fields changed
+  AlertModel copyWith({
+    String? id,
+    String? location,
+    String? description,
+    DateTime? timestamp,
     DateTime? createdAt,
-    @JsonKey(includeFromJson: true, includeToJson: false)
     DateTime? updatedAt,
-    @Default(false)
-    bool isDeleted,
-  }) = _AlertModel;
+    bool? isDeleted,
+  }) {
+    return AlertModel(
+      id: id ?? this.id,
+      location: location ?? this.location,
+      description: description ?? this.description,
+      timestamp: timestamp ?? this.timestamp,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+    );
+  }
 
-  factory AlertModel.fromJson(Map<String, dynamic> json) =>
-      _$AlertModelFromJson(json);
+  // Simple fromJson implementation
+  factory AlertModel.fromJson(Map<String, dynamic> json) {
+    return AlertModel(
+      id: json['id'] as String,
+      location: json['location'] as String,
+      description: json['description'] as String,
+      timestamp: DateTime.parse(json['timestamp'] as String),
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt'] as String) 
+          : null,
+      updatedAt: json['updatedAt'] != null 
+          ? DateTime.parse(json['updatedAt'] as String) 
+          : null,
+      isDeleted: json['isDeleted'] as bool? ?? false,
+    );
+  }
+
+  // Simple toJson implementation
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'location': location,
+      'description': description,
+      'timestamp': timestamp.toIso8601String(),
+      'isDeleted': isDeleted,
+    };
+  }
 } 

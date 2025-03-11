@@ -10,9 +10,16 @@ enum NavigationTab {
 }
 
 class NavigationCubit extends Cubit<NavigationTab> {
-  NavigationCubit() : super(NavigationTab.alerts);
+  NavigationCubit() : super(NavigationTab.alerts) {
+    print('DEBUG: NavigationCubit initialized with tab: ${NavigationTab.alerts}');
+  }
 
-  void setTab(NavigationTab tab) => emit(tab);
+  void setTab(NavigationTab tab) {
+    print('DEBUG: Switching to tab: ${tab.name}');
+    print('DEBUG: Previous tab was: ${state.name}');
+    emit(tab);
+    print('DEBUG: Tab switch complete');
+  }
 }
 
 class AppNavigation extends StatelessWidget {
@@ -54,6 +61,7 @@ class _BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentTab = context.watch<NavigationCubit>().state;
+    print('DEBUG: BottomNavBar rebuilding with tab: ${currentTab.name}');
 
     return Container(
       decoration: BoxDecoration(
@@ -75,25 +83,37 @@ class _BottomNavBar extends StatelessWidget {
                 icon: Icons.grid_view_rounded,
                 label: 'Alerts',
                 isSelected: currentTab == NavigationTab.alerts,
-                onTap: () => _onTabSelected(context, NavigationTab.alerts),
+                onTap: () {
+                  print('DEBUG: Alerts tab tapped');
+                  _onTabSelected(context, NavigationTab.alerts);
+                },
               ),
               _NavItem(
                 icon: Icons.emergency_rounded,
                 label: 'Emergency',
                 isSelected: currentTab == NavigationTab.emergency,
-                onTap: () => _onTabSelected(context, NavigationTab.emergency),
+                onTap: () {
+                  print('DEBUG: Emergency tab tapped');
+                  _onTabSelected(context, NavigationTab.emergency);
+                },
               ),
               _NavItem(
                 icon: Icons.map_rounded,
                 label: 'Map',
                 isSelected: currentTab == NavigationTab.map,
-                onTap: () => _onTabSelected(context, NavigationTab.map),
+                onTap: () {
+                  print('DEBUG: Map tab tapped');
+                  _onTabSelected(context, NavigationTab.map);
+                },
               ),
               _NavItem(
                 icon: Icons.settings_rounded,
                 label: 'Settings',
                 isSelected: currentTab == NavigationTab.settings,
-                onTap: () => _onTabSelected(context, NavigationTab.settings),
+                onTap: () {
+                  print('DEBUG: Settings tab tapped');
+                  _onTabSelected(context, NavigationTab.settings);
+                },
               ),
             ],
           ),
@@ -103,6 +123,7 @@ class _BottomNavBar extends StatelessWidget {
   }
 
   void _onTabSelected(BuildContext context, NavigationTab tab) {
+    print('DEBUG: _onTabSelected called with tab: ${tab.name}');
     context.read<NavigationCubit>().setTab(tab);
   }
 }

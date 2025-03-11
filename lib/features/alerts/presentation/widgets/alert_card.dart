@@ -8,10 +8,10 @@ class AlertCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const AlertCard({
-    super.key,
+    Key? key,
     required this.alert,
     this.onTap,
-  });
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -20,185 +20,71 @@ class AlertCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.darkGrey,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: _getAlertTypeColor().withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      _getAlertTypeIcon(),
-                      color: _getAlertTypeColor(),
-                      size: 24,
+                  Text(
+                    alert.description,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _getAlertTypeText(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        alert.location,
-                        style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _getSeverityColor().withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      _getSeverityText(),
-                      style: TextStyle(
-                        color: _getSeverityColor(),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
+                  const SizedBox(height: 12),
+                  Text(
+                    DateFormat('MMM d, h:mm a').format(alert.timestamp),
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                alert.description,
-                style: TextStyle(
-                  color: Colors.grey[300],
-                  fontSize: 14,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _formatTimestamp(alert.timestamp),
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  String _formatTimestamp(DateTime timestamp) {
-    final formatter = DateFormat('MMM d, h:mm a');
-    return formatter.format(timestamp);
-  }
-
-  Color _getSeverityColor() {
-    switch (alert.severity) {
-      case AlertSeverity.low:
-        return Colors.green;
-      case AlertSeverity.medium:
-        return AppTheme.primaryOrange;
-      case AlertSeverity.high:
-        return AppTheme.primaryOrange;
-      case AlertSeverity.critical:
-        return AppTheme.primaryOrange;
-    }
-  }
-
-  String _getSeverityText() {
-    switch (alert.severity) {
-      case AlertSeverity.low:
-        return 'Low';
-      case AlertSeverity.medium:
-        return 'Medium';
-      case AlertSeverity.high:
-        return 'High';
-      case AlertSeverity.critical:
-        return 'Critical';
-    }
-  }
-
-  IconData _getAlertTypeIcon() {
-    switch (alert.type) {
-      case AlertType.flood:
-        return Icons.water_drop;
-      case AlertType.earthquake:
-        return Icons.warning;
-      case AlertType.hurricane:
-        return Icons.air;
-      case AlertType.wildfire:
-        return Icons.local_fire_department;
-      case AlertType.tornado:
-        return Icons.tornado;
-      case AlertType.other:
-        return Icons.warning_amber;
-    }
-  }
-
-  Color _getAlertTypeColor() {
-    switch (alert.type) {
-      case AlertType.flood:
-        return AppTheme.primaryOrange;
-      case AlertType.earthquake:
-        return AppTheme.primaryOrange;
-      case AlertType.hurricane:
-        return AppTheme.primaryOrange;
-      case AlertType.wildfire:
-        return AppTheme.primaryOrange;
-      case AlertType.tornado:
-        return AppTheme.primaryOrange;
-      case AlertType.other:
-        return Colors.grey;
-    }
-  }
-
-  String _getAlertTypeText() {
-    switch (alert.type) {
-      case AlertType.flood:
-        return 'FLOOD';
-      case AlertType.earthquake:
-        return 'EARTHQUAKE';
-      case AlertType.hurricane:
-        return 'HURRICANE';
-      case AlertType.wildfire:
-        return 'WILDFIRE';
-      case AlertType.tornado:
-        return 'TORNADO';
-      case AlertType.other:
-        return 'ALERT';
-    }
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.2),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.red,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              alert.location,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 } 

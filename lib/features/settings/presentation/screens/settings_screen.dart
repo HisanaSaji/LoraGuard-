@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lora2/core/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:lora2/core/providers/theme_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,24 +14,75 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
   String _selectedAlertType = 'Sound';
-  bool _isDarkMode = true;
+  final String _appVersion = '1.0.0'; // Design mode version
+  
+  // Keys for shared preferences
+  static const String _notificationsEnabledKey = 'notifications_enabled';
+  static const String _alertTypeKey = 'alert_type';
+
+  @override
+  void initState() {
+    super.initState();
+    print('SettingsScreen - initState called');
+    _loadPreferences();
+  }
+  
+  // Load saved preferences
+  Future<void> _loadPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _notificationsEnabled = prefs.getBool(_notificationsEnabledKey) ?? true;
+        _selectedAlertType = prefs.getString(_alertTypeKey) ?? 'Sound';
+      });
+      print('Loaded preferences: notifications=$_notificationsEnabled, alertType=$_selectedAlertType');
+    } catch (e) {
+      print('Error loading preferences: $e');
+    }
+  }
+  
+  // Save preferences
+  Future<void> _savePreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_notificationsEnabledKey, _notificationsEnabled);
+      await prefs.setString(_alertTypeKey, _selectedAlertType);
+      print('Saved preferences: notifications=$_notificationsEnabled, alertType=$_selectedAlertType');
+    } catch (e) {
+      print('Error saving preferences: $e');
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    print('SettingsScreen - didChangeDependencies called');
+  }
 
   @override
   Widget build(BuildContext context) {
+    print('SettingsScreen - build called');
     return Scaffold(
-      backgroundColor: AppTheme.pureBlack,
+      backgroundColor: AppTheme.pureBlack, // Ensure background color is set
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 24),
-              _buildNotificationPreferences(),
-              const SizedBox(height: 32),
-              _buildAppearanceSettings(),
-            ],
-          ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 24),
+                    _buildNotificationPreferences(),
+                    const SizedBox(height: 32),
+                    _buildAboutSection(),
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -36,20 +90,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 16.0),
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.primaryOrange,
-              borderRadius: BorderRadius.circular(12),
+              color: AppTheme.darkGrey,
+              borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
               Icons.settings_rounded,
               color: Colors.white,
-              size: 28,
+              size: 24,
             ),
           ),
           const SizedBox(width: 12),
@@ -57,8 +110,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             'Settings',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -76,191 +129,99 @@ class _SettingsScreenState extends State<SettingsScreen> {
             'Notification Preferences',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
         const SizedBox(height: 16),
-        _buildSettingCard(
-          title: 'Enable Notifications',
-          icon: Icons.notifications_rounded,
-          color: Colors.blue,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Receive alert notifications',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                ),
-              ),
-              Switch(
-                value: _notificationsEnabled,
-                onChanged: (value) {
+        SwitchListTile(
+          title: const Text(
+            'Enable Notifications',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+            ),
+          ),
+          subtitle: const Text(
+            'Receive alert notifications',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+          ),
+          value: _notificationsEnabled,
+          activeColor: AppTheme.primaryOrange,
+          onChanged: (value) {
+            setState(() {
+              _notificationsEnabled = value;
+            });
+            _savePreferences();
+          },
+        ),
+        // Alert Type options
+        if (_notificationsEnabled) ...[
+          ListTile(
+            leading: const Icon(Icons.notifications_active, color: Colors.grey),
+            title: const Text(
+              'Alert Type',
+              style: TextStyle(color: Colors.white),
+            ),
+            trailing: DropdownButton<String>(
+              value: _selectedAlertType,
+              dropdownColor: AppTheme.darkGrey,
+              style: const TextStyle(color: Colors.white),
+              underline: Container(),
+              icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
+              items: ['Sound', 'Vibration', 'Silent'].map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
                   setState(() {
-                    _notificationsEnabled = value;
+                    _selectedAlertType = newValue;
                   });
-                },
-                activeColor: Colors.blue,
-                activeTrackColor: Colors.blue.withOpacity(0.3),
-                inactiveThumbColor: Colors.grey,
-                inactiveTrackColor: Colors.grey.withOpacity(0.3),
-              ),
-            ],
+                  _savePreferences();
+                }
+              },
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        _buildSettingCard(
-          title: 'Alert Type',
-          icon: Icons.volume_up_rounded,
-          color: Colors.purple,
-          child: Column(
-            children: [
-              _buildAlertTypeOption('Sound', Icons.volume_up_rounded),
-              const Divider(color: Colors.white10, height: 1),
-              _buildAlertTypeOption('Vibration', Icons.vibration_rounded),
-              const Divider(color: Colors.white10, height: 1),
-              _buildAlertTypeOption('Silent', Icons.notifications_off_rounded),
-            ],
-          ),
-        ),
+        ],
       ],
     );
   }
 
-  Widget _buildAlertTypeOption(String type, IconData icon) {
-    final isSelected = _selectedAlertType == type;
-    
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedAlertType = type;
-        });
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.purple : Colors.white54,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              type,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white70,
-                fontSize: 16,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-            const Spacer(),
-            if (isSelected)
-              const Icon(
-                Icons.check_rounded,
-                color: Colors.purple,
-                size: 20,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppearanceSettings() {
+  Widget _buildAboutSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
-            'Appearance',
+            'About',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
         const SizedBox(height: 16),
-        _buildSettingCard(
-          title: 'Dark Mode',
-          icon: _isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-          color: Colors.amber,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Switch(
-                value: _isDarkMode,
-                onChanged: (value) {
-                  setState(() {
-                    _isDarkMode = value;
-                  });
-                },
-                activeColor: Colors.amber,
-                activeTrackColor: Colors.amber.withOpacity(0.3),
-                inactiveThumbColor: Colors.grey,
-                inactiveTrackColor: Colors.grey.withOpacity(0.3),
-              ),
-            ],
+        ListTile(
+          leading: const Icon(Icons.info_outline, color: Colors.grey),
+          title: const Text(
+            'App Version',
+            style: TextStyle(color: Colors.white),
+          ),
+          trailing: Text(
+            _appVersion,
+            style: const TextStyle(color: Colors.grey),
           ),
         ),
       ],
     );
   }
-
-  Widget _buildSettingCard({
-    required String title,
-    required IconData icon,
-    required Color color,
-    required Widget child,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.darkGrey,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          child,
-        ],
-      ),
-    );
-  }
-} 
+}

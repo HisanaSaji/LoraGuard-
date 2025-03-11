@@ -1,0 +1,37 @@
+# Directories to exclude
+.dart_tool/
+.idea/
+.vscode/
+build/
+android/.gradle/
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# Files to exclude
+.DS_Store
+.metadata
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+*.log
+.packages
+pubspec.lock
+
+# Generated files
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# Local configuration
+local.properties
+keystore.properties
+google-services.json
+GoogleService-Info.plist
+
+# Debug/temporary files
+*.swp
+*~
+._* 

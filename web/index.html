@@ -19,10 +19,15 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
+  
+  <!-- Control browser appearance -->
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
   <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="lora2">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
@@ -31,6 +36,74 @@
 
   <title>lora2</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Custom CSS to remove orange header but keep settings UI visible -->
+  <style>
+    /* REMOVE THIS PROBLEMATIC CSS THAT HIDES EVERYTHING */
+    /* *:not(script):not(style):not(link) {
+      visibility: hidden;
+    } */
+    
+    /* But show the actual app content */
+    .flutter-app-content, 
+    .flutter-app-content * {
+      visibility: visible !important;
+    }
+  </style>
+
+  <!-- Firebase SDK - Using type="module" -->
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAOI4FeMWl7bwfu322Dj1uyuZbvKT7qfTo",
+      authDomain: "loratest-76a91.firebaseapp.com",
+      databaseURL: "https://loratest-76a91-default-rtdb.firebaseio.com",
+      projectId: "loratest-76a91",
+      storageBucket: "loratest-76a91.firebasestorage.app",
+      messagingSenderId: "932534568815",
+      appId: "1:932534568815:web:3e7a8fe28da55a7bb44a9a"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+    
+    // Make Firebase available globally
+    window.firebaseApp = app;
+    window.firebaseDatabase = database;
+  </script>
+
+  <script>
+    // Define serviceWorkerVersion for Flutter
+    var serviceWorkerVersion = null;
+    
+    window.addEventListener('load', function(ev) {
+      // Download main.dart.js
+      _flutter.loader.load({
+        serviceWorker: {
+          serviceWorkerVersion: serviceWorkerVersion,
+        },
+        onEntrypointLoaded: function(engineInitializer) {
+          engineInitializer.initializeEngine().then(function(appRunner) {
+            appRunner.runApp();
+            
+            // Mark the Flutter app content to make it visible
+            setTimeout(function() {
+              // Find the Flutter app content
+              const flutterContent = document.querySelector('flt-glass-pane');
+              if (flutterContent) {
+                flutterContent.classList.add('flutter-app-content');
+              }
+            }, 1000);
+          });
+        }
+      });
+    });
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

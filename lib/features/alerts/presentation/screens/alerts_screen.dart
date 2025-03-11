@@ -1,12 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lora2/core/services/weather_service.dart';
 import 'package:lora2/core/theme/app_theme.dart';
+import 'package:lora2/core/config/env_config.dart';
 import 'package:lora2/features/alerts/presentation/cubit/alert_cubit.dart';
 import 'package:lora2/features/alerts/presentation/cubit/alert_state.dart';
 import 'package:lora2/features/alerts/presentation/widgets/alert_card.dart';
+import 'package:lora2/features/alerts/presentation/widgets/weather_card.dart';
 
-class AlertsScreen extends StatelessWidget {
+class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
+
+  @override
+  State<AlertsScreen> createState() => _AlertsScreenState();
+}
+
+class _AlertsScreenState extends State<AlertsScreen> {
+  WeatherData? _weatherData;
+  bool _isLoadingWeather = true;
+  String? _weatherError;
+  
+  @override
+  void initState() {
+    super.initState();
+    _fetchWeatherData();
+  }
+  
+  Future<void> _fetchWeatherData() async {
+    setState(() {
+      _isLoadingWeather = true;
+      _weatherError = null;
+    });
+    
+    try {
+      final weatherService = WeatherService(apiKey: EnvConfig.openWeatherApiKey);
+      final weatherData = await weatherService.getWeatherForCity('Thiruvananthapuram');
+      
+      setState(() {
+        _weatherData = weatherData;
+        _isLoadingWeather = false;
+      });
+    } catch (e) {
+      setState(() {
+        _weatherError = e.toString();
+        _isLoadingWeather = false;
+      });
+      print('Error fetching weather data: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +58,7 @@ class AlertsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
+            _buildWeatherSection(),
             _buildAlertTabs(),
             Expanded(
               child: _buildAlertsList(),
@@ -54,19 +96,44 @@ class AlertsScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.darkGrey,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.notifications_outlined,
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildWeatherSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Current Weather',
+            style: TextStyle(
               color: Colors.white,
-              size: 28,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
           ),
+          if (_isLoadingWeather)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryOrange),
+                ),
+              ),
+            )
+          else if (_weatherError != null)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Failed to load weather data',
+                style: TextStyle(color: Colors.red[300]),
+              ),
+            )
+          else if (_weatherData != null)
+            WeatherCard(weather: _weatherData!),
         ],
       ),
     );
@@ -75,40 +142,19 @@ class AlertsScreen extends StatelessWidget {
   Widget _buildAlertTabs() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryOrange,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              'Active Alerts',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryOrange,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(
+          'Active Alerts',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
-          const Spacer(),
-          Row(
-            children: [
-              Text(
-                'View All',
-                style: TextStyle(
-                  color: AppTheme.primaryOrange,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward,
-                size: 16,
-                color: AppTheme.primaryOrange,
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -158,18 +204,58 @@ class AlertsScreen extends StatelessWidget {
         return RefreshIndicator(
           color: AppTheme.primaryOrange,
           backgroundColor: AppTheme.darkGrey,
-          onRefresh: () => context.read<AlertCubit>().loadActiveAlerts(),
+          onRefresh: () {
+            _fetchWeatherData(); // Also refresh weather data
+            return context.read<AlertCubit>().loadActiveAlerts();
+          },
           child: ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: state.alerts.length,
             separatorBuilder: (context, index) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
               final alert = state.alerts[index];
-              return AlertCard(
-                alert: alert,
-                onTap: () {
-                  // Navigate to alert details
+              return Dismissible(
+                key: Key(alert.id),
+                background: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  child: const Icon(
+                    Icons.delete,
+                    color: Colors.white,
+                  ),
+                ),
+                direction: DismissDirection.endToStart,
+                onDismissed: (direction) {
+                  // Delete the alert
+                  context.read<AlertCubit>().deleteAlert(alert.id);
+                  
+                  // Show a snackbar
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Alert deleted'),
+                      backgroundColor: AppTheme.darkGrey,
+                      action: SnackBarAction(
+                        label: 'UNDO',
+                        textColor: AppTheme.primaryOrange,
+                        onPressed: () {
+                          // Reload alerts to restore the deleted alert
+                          // In a real app, you would implement an undo feature
+                          context.read<AlertCubit>().loadActiveAlerts();
+                        },
+                      ),
+                    ),
+                  );
                 },
+                child: AlertCard(
+                  alert: alert,
+                  onTap: () {
+                    // Navigate to alert details
+                  },
+                ),
               );
             },
           ),
