@@ -9,45 +9,22 @@ part of 'alert_model.dart';
 _$AlertModelImpl _$$AlertModelImplFromJson(Map<String, dynamic> json) =>
     _$AlertModelImpl(
       id: json['id'] as String,
-      type: $enumDecode(_$AlertTypeEnumMap, json['type']),
-      location: json['location'] as String,
       description: json['description'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String),
-      severity: $enumDecode(_$AlertSeverityEnumMap, json['severity']),
-      createdAt:
-          json['createdAt'] == null
+      location:
+          json['location'] == null
               ? null
-              : DateTime.parse(json['createdAt'] as String),
-      updatedAt:
-          json['updatedAt'] == null
-              ? null
-              : DateTime.parse(json['updatedAt'] as String),
+              : AlertLocation.fromJson(
+                json['location'] as Map<String, dynamic>,
+              ),
       isDeleted: json['isDeleted'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$$AlertModelImplToJson(_$AlertModelImpl instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'type': _$AlertTypeEnumMap[instance.type]!,
-      'location': instance.location,
       'description': instance.description,
       'timestamp': instance.timestamp.toIso8601String(),
-      'severity': _$AlertSeverityEnumMap[instance.severity]!,
+      'location': instance.location,
       'isDeleted': instance.isDeleted,
     };
-
-const _$AlertTypeEnumMap = {
-  AlertType.flood: 0,
-  AlertType.earthquake: 1,
-  AlertType.hurricane: 2,
-  AlertType.wildfire: 3,
-  AlertType.tornado: 4,
-  AlertType.other: 5,
-};
-
-const _$AlertSeverityEnumMap = {
-  AlertSeverity.low: 0,
-  AlertSeverity.medium: 1,
-  AlertSeverity.high: 2,
-  AlertSeverity.critical: 3,
-};

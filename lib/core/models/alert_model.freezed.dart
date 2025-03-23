@@ -22,15 +22,9 @@ AlertModel _$AlertModelFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$AlertModel {
   String get id => throw _privateConstructorUsedError;
-  AlertType get type => throw _privateConstructorUsedError;
-  String get location => throw _privateConstructorUsedError;
   String get description => throw _privateConstructorUsedError;
   DateTime get timestamp => throw _privateConstructorUsedError;
-  AlertSeverity get severity => throw _privateConstructorUsedError;
-  @JsonKey(includeFromJson: true, includeToJson: false)
-  DateTime? get createdAt => throw _privateConstructorUsedError;
-  @JsonKey(includeFromJson: true, includeToJson: false)
-  DateTime? get updatedAt => throw _privateConstructorUsedError;
+  AlertLocation? get location => throw _privateConstructorUsedError;
   bool get isDeleted => throw _privateConstructorUsedError;
 
   /// Serializes this AlertModel to a JSON map.
@@ -52,13 +46,9 @@ abstract class $AlertModelCopyWith<$Res> {
   @useResult
   $Res call({
     String id,
-    AlertType type,
-    String location,
     String description,
     DateTime timestamp,
-    AlertSeverity severity,
-    @JsonKey(includeFromJson: true, includeToJson: false) DateTime? createdAt,
-    @JsonKey(includeFromJson: true, includeToJson: false) DateTime? updatedAt,
+    AlertLocation? location,
     bool isDeleted,
   });
 }
@@ -79,13 +69,9 @@ class _$AlertModelCopyWithImpl<$Res, $Val extends AlertModel>
   @override
   $Res call({
     Object? id = null,
-    Object? type = null,
-    Object? location = null,
     Object? description = null,
     Object? timestamp = null,
-    Object? severity = null,
-    Object? createdAt = freezed,
-    Object? updatedAt = freezed,
+    Object? location = freezed,
     Object? isDeleted = null,
   }) {
     return _then(
@@ -94,16 +80,6 @@ class _$AlertModelCopyWithImpl<$Res, $Val extends AlertModel>
                 null == id
                     ? _value.id
                     : id // ignore: cast_nullable_to_non_nullable
-                        as String,
-            type:
-                null == type
-                    ? _value.type
-                    : type // ignore: cast_nullable_to_non_nullable
-                        as AlertType,
-            location:
-                null == location
-                    ? _value.location
-                    : location // ignore: cast_nullable_to_non_nullable
                         as String,
             description:
                 null == description
@@ -115,21 +91,11 @@ class _$AlertModelCopyWithImpl<$Res, $Val extends AlertModel>
                     ? _value.timestamp
                     : timestamp // ignore: cast_nullable_to_non_nullable
                         as DateTime,
-            severity:
-                null == severity
-                    ? _value.severity
-                    : severity // ignore: cast_nullable_to_non_nullable
-                        as AlertSeverity,
-            createdAt:
-                freezed == createdAt
-                    ? _value.createdAt
-                    : createdAt // ignore: cast_nullable_to_non_nullable
-                        as DateTime?,
-            updatedAt:
-                freezed == updatedAt
-                    ? _value.updatedAt
-                    : updatedAt // ignore: cast_nullable_to_non_nullable
-                        as DateTime?,
+            location:
+                freezed == location
+                    ? _value.location
+                    : location // ignore: cast_nullable_to_non_nullable
+                        as AlertLocation?,
             isDeleted:
                 null == isDeleted
                     ? _value.isDeleted
@@ -152,13 +118,9 @@ abstract class _$$AlertModelImplCopyWith<$Res>
   @useResult
   $Res call({
     String id,
-    AlertType type,
-    String location,
     String description,
     DateTime timestamp,
-    AlertSeverity severity,
-    @JsonKey(includeFromJson: true, includeToJson: false) DateTime? createdAt,
-    @JsonKey(includeFromJson: true, includeToJson: false) DateTime? updatedAt,
+    AlertLocation? location,
     bool isDeleted,
   });
 }
@@ -178,13 +140,9 @@ class __$$AlertModelImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? id = null,
-    Object? type = null,
-    Object? location = null,
     Object? description = null,
     Object? timestamp = null,
-    Object? severity = null,
-    Object? createdAt = freezed,
-    Object? updatedAt = freezed,
+    Object? location = freezed,
     Object? isDeleted = null,
   }) {
     return _then(
@@ -193,16 +151,6 @@ class __$$AlertModelImplCopyWithImpl<$Res>
             null == id
                 ? _value.id
                 : id // ignore: cast_nullable_to_non_nullable
-                    as String,
-        type:
-            null == type
-                ? _value.type
-                : type // ignore: cast_nullable_to_non_nullable
-                    as AlertType,
-        location:
-            null == location
-                ? _value.location
-                : location // ignore: cast_nullable_to_non_nullable
                     as String,
         description:
             null == description
@@ -214,21 +162,11 @@ class __$$AlertModelImplCopyWithImpl<$Res>
                 ? _value.timestamp
                 : timestamp // ignore: cast_nullable_to_non_nullable
                     as DateTime,
-        severity:
-            null == severity
-                ? _value.severity
-                : severity // ignore: cast_nullable_to_non_nullable
-                    as AlertSeverity,
-        createdAt:
-            freezed == createdAt
-                ? _value.createdAt
-                : createdAt // ignore: cast_nullable_to_non_nullable
-                    as DateTime?,
-        updatedAt:
-            freezed == updatedAt
-                ? _value.updatedAt
-                : updatedAt // ignore: cast_nullable_to_non_nullable
-                    as DateTime?,
+        location:
+            freezed == location
+                ? _value.location
+                : location // ignore: cast_nullable_to_non_nullable
+                    as AlertLocation?,
         isDeleted:
             null == isDeleted
                 ? _value.isDeleted
@@ -244,13 +182,9 @@ class __$$AlertModelImplCopyWithImpl<$Res>
 class _$AlertModelImpl implements _AlertModel {
   const _$AlertModelImpl({
     required this.id,
-    required this.type,
-    required this.location,
     required this.description,
     required this.timestamp,
-    required this.severity,
-    @JsonKey(includeFromJson: true, includeToJson: false) this.createdAt,
-    @JsonKey(includeFromJson: true, includeToJson: false) this.updatedAt,
+    this.location,
     this.isDeleted = false,
   });
 
@@ -260,28 +194,18 @@ class _$AlertModelImpl implements _AlertModel {
   @override
   final String id;
   @override
-  final AlertType type;
-  @override
-  final String location;
-  @override
   final String description;
   @override
   final DateTime timestamp;
   @override
-  final AlertSeverity severity;
-  @override
-  @JsonKey(includeFromJson: true, includeToJson: false)
-  final DateTime? createdAt;
-  @override
-  @JsonKey(includeFromJson: true, includeToJson: false)
-  final DateTime? updatedAt;
+  final AlertLocation? location;
   @override
   @JsonKey()
   final bool isDeleted;
 
   @override
   String toString() {
-    return 'AlertModel(id: $id, type: $type, location: $location, description: $description, timestamp: $timestamp, severity: $severity, createdAt: $createdAt, updatedAt: $updatedAt, isDeleted: $isDeleted)';
+    return 'AlertModel(id: $id, description: $description, timestamp: $timestamp, location: $location, isDeleted: $isDeleted)';
   }
 
   @override
@@ -290,37 +214,20 @@ class _$AlertModelImpl implements _AlertModel {
         (other.runtimeType == runtimeType &&
             other is _$AlertModelImpl &&
             (identical(other.id, id) || other.id == id) &&
-            (identical(other.type, type) || other.type == type) &&
-            (identical(other.location, location) ||
-                other.location == location) &&
             (identical(other.description, description) ||
                 other.description == description) &&
             (identical(other.timestamp, timestamp) ||
                 other.timestamp == timestamp) &&
-            (identical(other.severity, severity) ||
-                other.severity == severity) &&
-            (identical(other.createdAt, createdAt) ||
-                other.createdAt == createdAt) &&
-            (identical(other.updatedAt, updatedAt) ||
-                other.updatedAt == updatedAt) &&
+            (identical(other.location, location) ||
+                other.location == location) &&
             (identical(other.isDeleted, isDeleted) ||
                 other.isDeleted == isDeleted));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    id,
-    type,
-    location,
-    description,
-    timestamp,
-    severity,
-    createdAt,
-    updatedAt,
-    isDeleted,
-  );
+  int get hashCode =>
+      Object.hash(runtimeType, id, description, timestamp, location, isDeleted);
 
   /// Create a copy of AlertModel
   /// with the given fields replaced by the non-null parameter values.
@@ -339,15 +246,9 @@ class _$AlertModelImpl implements _AlertModel {
 abstract class _AlertModel implements AlertModel {
   const factory _AlertModel({
     required final String id,
-    required final AlertType type,
-    required final String location,
     required final String description,
     required final DateTime timestamp,
-    required final AlertSeverity severity,
-    @JsonKey(includeFromJson: true, includeToJson: false)
-    final DateTime? createdAt,
-    @JsonKey(includeFromJson: true, includeToJson: false)
-    final DateTime? updatedAt,
+    final AlertLocation? location,
     final bool isDeleted,
   }) = _$AlertModelImpl;
 
@@ -357,21 +258,11 @@ abstract class _AlertModel implements AlertModel {
   @override
   String get id;
   @override
-  AlertType get type;
-  @override
-  String get location;
-  @override
   String get description;
   @override
   DateTime get timestamp;
   @override
-  AlertSeverity get severity;
-  @override
-  @JsonKey(includeFromJson: true, includeToJson: false)
-  DateTime? get createdAt;
-  @override
-  @JsonKey(includeFromJson: true, includeToJson: false)
-  DateTime? get updatedAt;
+  AlertLocation? get location;
   @override
   bool get isDeleted;
 

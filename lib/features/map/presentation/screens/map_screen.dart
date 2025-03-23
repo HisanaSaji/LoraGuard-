@@ -7,10 +7,11 @@ import 'package:lora2/features/map/data/repositories/firebase_location_repositor
 import 'package:lora2/features/alerts/services/notification_service.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share/share.dart';
+import 'package:share_plus/share_plus.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lora2/core/theme/app_theme.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -31,7 +32,8 @@ class _MapScreenState extends State<MapScreen> {
   bool _initialLoad = true;
   
   // Controller
-  late MapController _mapController;
+  late final MapController _mapController;
+  bool _isMapReady = false;
   
   // Subscriptions
   StreamSubscription<List<LocationModel>>? _locationSubscription;
@@ -51,20 +53,14 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     print('MapScreen: initState called');
     
-    // Initialize the map controller
+    // Initialize controllers
     _mapController = MapController();
     
     // Initialize the repository
     _locationRepository = FirebaseLocationRepository();
     
-    // Check for notification data
-    _checkForNotificationData();
-    
-    // Set up Firebase listeners immediately without delay
+    // Set up Firebase listeners immediately
     _setupFirebaseListeners();
-    
-    // Set a timeout to prevent indefinite loading
-    _initTimeoutTimer();
   }
   
   Future<void> _checkForNotificationData() async {
@@ -106,13 +102,13 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _initTimeoutTimer() {
-    // Set a strict timeout (5 seconds) to prevent indefinite loading
-    _timeoutTimer = Timer(const Duration(seconds: 5), () {
+    // Set a longer timeout (15 seconds) to give Firebase more time to connect
+    _timeoutTimer = Timer(const Duration(seconds: 15), () {
       if (mounted && _isLoading) {
         print('MapScreen: Loading timed out, using fallback location');
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Could not load location data. Showing default view.';
+          _errorMessage = 'Could not load location data within 15 seconds. Please check your internet connection and try refreshing.';
           _showErrorMessage = true;
         });
       }
@@ -125,7 +121,7 @@ class _MapScreenState extends State<MapScreen> {
     // Listen for location updates
     _locationSubscription = _locationRepository.locationStream.listen(
       (locations) {
-        print('MapScreen: Received ${locations.length} locations from Firebase');
+        print('MapScreen: Received ${locations.length} locations');
         
         if (mounted) {
           setState(() {
@@ -133,72 +129,37 @@ class _MapScreenState extends State<MapScreen> {
             _isLoading = false;
             _showErrorMessage = false;
             
-            // First check if we have a notification target location
-            if (_notificationTargetLocation != null) {
-              print('MapScreen: Centering on notification target location');
-              
-              // Center on the notification target location
-              _mapController.move(_notificationTargetLocation!, 13.0);
-              
-              // If we have a target disaster ID, show details for that disaster
-              if (_notificationTargetDisasterId != null && _notificationTargetDisasterId!.isNotEmpty) {
-                final targetDisaster = locations.firstWhere(
-                  (loc) => loc.id == _notificationTargetDisasterId,
-                  orElse: () => locations.first,
+            // Only center map on first load or when explicitly requested
+            if (_initialLoad && locations.isNotEmpty) {
+              print('MapScreen: Initial load - centering map on first location');
+              try {
+                _mapController.move(
+                  LatLng(locations.first.latitude, locations.first.longitude),
+                  13.0
                 );
-                
-                _showDisasterDetails(targetDisaster);
+                _isMapReady = true;
+              } catch (e) {
+                print('MapScreen: Error moving map: $e');
               }
-              
-              // Clear the notification target so we don't keep centering on it
-              _notificationTargetLocation = null;
-              _notificationTargetDisasterId = null;
-            }
-            // Otherwise, if there's a current disaster or we're in initial load, center the map
-            else if (_currentDisaster != null || _initialLoad) {
-              _centerMapOnDisaster();
               _initialLoad = false;
             }
           });
-          
-          // Auto-show details for the most recent location if we're not showing details for notification target
-          if (locations.isNotEmpty && _shouldShowDisasterDetails && _currentDisaster == null) {
-            _showDisasterDetails(locations.first);
-          }
-          
-          // Show notification for the most recent disaster if it's new
-          if (locations.isNotEmpty && !_initialLoad && _lastKnownDisasterId != locations.first.id) {
-            _lastKnownDisasterId = locations.first.id;
-            _showDisasterNotification(locations.first);
-          }
         }
-        },
-        onError: (error) {
+      },
+      onError: (error) {
         print('MapScreen: Error from location stream: $error');
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'Error loading locations: ${error.toString()}';
+            _errorMessage = 'Error loading locations: $error';
             _showErrorMessage = true;
           });
         }
-      },
+      }
     );
-    
-    // Listen for location deletions
-    _locationRepository.listenForLocationDeletions((deletedId) {
-      print('MapScreen: Location deleted: $deletedId');
-      
-      if (mounted) {
-        // If the current disaster was deleted, clear it
-        if (_currentDisaster?.id == deletedId) {
-      setState(() {
-            _currentDisaster = null;
-            _shouldShowDisasterDetails = false;
-      });
-    }
-  }
-    });
+
+    // Initialize timeout timer
+    _initTimeoutTimer();
   }
 
   void _showDisasterNotification(LocationModel disaster) {
@@ -242,7 +203,6 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     print('MapScreen: dispose called');
-    // Cancel all subscriptions
     _locationSubscription?.cancel();
     _timeoutTimer?.cancel();
     super.dispose();
@@ -253,170 +213,95 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Disaster Map'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _refreshMap,
-            tooltip: 'Refresh Map',
-          ),
-          IconButton(
-            icon: const Icon(Icons.my_location),
-            onPressed: _centerMapOnDisaster,
-            tooltip: 'Center Map',
-          ),
-        ],
       ),
       body: Stack(
         children: [
-          // The map
-          _buildMapView(),
-          
-          // Loading indicator
           if (_isLoading)
             const Center(
               child: CircularProgressIndicator(),
-            ),
-          
-          // Error message
-          if (_showErrorMessage)
-            _buildErrorView(),
-          
-          // Disaster details panel
-          if (_shouldShowDisasterDetails && _currentDisaster != null)
-            _buildDisasterDetailsPanel(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorView() {
-    return Container(
-      color: Colors.black.withOpacity(0.7),
-      padding: const EdgeInsets.all(20),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry Connection'),
-                  onPressed: _refreshMap,
+            )
+          else if (_showErrorMessage)
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 16),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white),
-                  ),
-                  child: const Text('Show Map Anyway'),
-                  onPressed: () {
-                    setState(() {
-                      _showErrorMessage = false;
-                    });
-                  },
+                child: Text(
+                  _errorMessage,
+                  style: const TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          else if (_locations.isEmpty)
+            const Center(
+              child: Text('No location data available'),
+            )
+          else
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: LatLng(_locations.first.latitude, _locations.first.longitude),
+                initialZoom: 13.0,
+                onMapReady: () {
+                  setState(() {
+                    _isMapReady = true;
+                  });
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.app',
+                ),
+                MarkerLayer(
+                  markers: _buildMarkers(),
                 ),
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMapView() {
-    // If we're still loading and have no locations, show a placeholder
-    if (_isLoading && _locations.isEmpty) {
-      return const Center(
-        child: Text('Loading map...'),
-      );
-    }
-    
-    // Default location (Philippines) if no locations are available
-    final defaultLocation = LatLng(14.5995, 120.9842);
-    
-    // Use the first location from our list, or fall back to default
-    final initialLocation = _locations.isNotEmpty
-        ? LatLng(_locations.first.latitude, _locations.first.longitude)
-        : defaultLocation;
-    
-    return FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-        initialCenter: initialLocation,
-        initialZoom: 10.0,
-        onTap: (_, __) {
-          // Hide disaster details when tapping on the map
-          if (_shouldShowDisasterDetails) {
-                  setState(() {
-              _shouldShowDisasterDetails = false;
-                  });
-                }
-              },
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.app',
+          if (!_isLoading && _locations.isNotEmpty && _isMapReady)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton(
+                onPressed: () {
+                  if (_locations.isNotEmpty) {
+                    try {
+                      _mapController.move(
+                        LatLng(_locations.first.latitude, _locations.first.longitude),
+                        13.0
+                      );
+                    } catch (e) {
+                      print('MapScreen: Error moving map: $e');
+                    }
+                  }
+                },
+                child: const Icon(Icons.my_location),
+                tooltip: 'Recenter Map',
               ),
-              MarkerLayer(
-          markers: _buildMarkers(),
-        ),
-      ],
+            ),
+        ],
+      ),
     );
   }
 
   List<Marker> _buildMarkers() {
-    final markers = <Marker>[];
-    
-    for (final location in _locations) {
-      final marker = Marker(
+    print('MapScreen: Building ${_locations.length} markers');
+    return _locations.map((location) {
+      return Marker(
         width: 40.0,
         height: 40.0,
         point: LatLng(location.latitude, location.longitude),
-        child: GestureDetector(
-          onTap: () {
-            // Show disaster details when tapping on a marker
-            _showDisasterDetails(location);
-          },
-                    child: Icon(
-                      Icons.location_on,
-            color: _getMarkerColorForStatus(location.status),
-                      size: 40,
-          ),
+        child: Icon(
+          Icons.location_on,
+          color: Colors.red,
+          size: 40,
         ),
       );
-      
-      markers.add(marker);
-    }
-    
-    return markers;
-  }
-
-  Color _getMarkerColorForStatus(String? status) {
-    switch (status?.toLowerCase() ?? 'default') {
-      case 'active':
-      case 'disaster':
-        return Colors.red;
-      case 'resolved':
-        return Colors.green;
-      case 'pending':
-        return Colors.yellow;
-      case 'default':
-        return Colors.blue;
-      default:
-        return Colors.red;
-    }
+    }).toList();
   }
 
   void _showDisasterDetails(LocationModel disaster) {
@@ -494,9 +379,38 @@ class _MapScreenState extends State<MapScreen> {
                     icon: const Icon(Icons.share),
                     label: const Text('Share'),
                     onPressed: () {
+                      // Debug logging
+                      print('DEBUG: Attempting to share disaster information');
+                      print('DEBUG: Current disaster data: ${_currentDisaster?.toString()}');
+                      
                       // Share disaster information
                       final shareText = 'Disaster alert at ${_currentDisaster!.latitude}, ${_currentDisaster!.longitude}: ${_currentDisaster!.description}';
-                      Share.share(shareText);
+                      print('DEBUG: Generated share text: $shareText');
+                      
+                      try {
+                        Share.share(
+                          shareText,
+                          subject: 'Disaster Alert Information',
+                        ).then((_) {
+                          print('DEBUG: Share.share completed successfully');
+                        }).catchError((e) {
+                          print('DEBUG: Error while sharing: $e');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to share: ${e.toString()}'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        });
+                      } catch (e) {
+                        print('DEBUG: Error while sharing: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to share: ${e.toString()}'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
                     },
                   ),
                 ],
@@ -506,24 +420,5 @@ class _MapScreenState extends State<MapScreen> {
                 ),
       ),
     );
-  }
-  
-  void _refreshMap() {
-    print('MapScreen: Refreshing map');
-    
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _showErrorMessage = false;
-        
-        // Clear the timeout timer and create a new one
-        _timeoutTimer?.cancel();
-        _initTimeoutTimer();
-      });
-      
-      // Stop and restart Firebase listeners
-    _locationSubscription?.cancel();
-      _setupFirebaseListeners();
-    }
   }
 }

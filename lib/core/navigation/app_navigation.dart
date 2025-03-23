@@ -10,8 +10,8 @@ enum NavigationTab {
 }
 
 class NavigationCubit extends Cubit<NavigationTab> {
-  NavigationCubit() : super(NavigationTab.settings) {
-    print('DEBUG: NavigationCubit initialized with tab: ${NavigationTab.settings}');
+  NavigationCubit() : super(NavigationTab.alerts) {
+    print('DEBUG: NavigationCubit initialized with tab: ${NavigationTab.alerts}');
   }
 
   void setTab(NavigationTab tab) {
@@ -61,7 +61,7 @@ class _BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentTab = context.watch<NavigationCubit>().state;
-    print('DEBUG: BottomNavBar rebuilding with tab: ${currentTab.name}');
+    print('DEBUG: BottomNavBar rebuilding with tab: $currentTab');
 
     return Container(
       decoration: BoxDecoration(

@@ -52,8 +52,8 @@ void main() async {
         Provider<AlertRepository>.value(
           value: alertRepository,
         ),
-        Provider<NotificationService>.value(
-          value: notificationService,
+        Provider<NotificationService>(
+          create: (_) => notificationService,
         ),
       ],
       child: const LoRaGuardApp(),
@@ -74,7 +74,6 @@ class _LoRaGuardAppState extends State<LoRaGuardApp> {
   @override
   void initState() {
     super.initState();
-    // Listen for notification taps
     _setupNotificationListeners();
   }
 
@@ -84,48 +83,29 @@ class _LoRaGuardAppState extends State<LoRaGuardApp> {
       print('Notification tap received with payload: $payload');
       
       try {
-        // Try to parse the payload as JSON first
+        // Parse the payload
         final Map<String, dynamic> payloadData = jsonDecode(payload);
         
-        if (payloadData.containsKey('type') && payloadData['type'] == 'disaster') {
-          print('Processing disaster notification tap');
-          
-          // Navigate to map tab
-          final NavigationCubit navigationCubit = 
-              BlocProvider.of<NavigationCubit>(context, listen: false);
-          
-          print('Navigating to map tab due to disaster notification tap');
-          navigationCubit.setTab(NavigationTab.map);
-          
-          // Get latitude and longitude from payload if available
-          if (payloadData.containsKey('latitude') && payloadData.containsKey('longitude')) {
-            // This information could be passed to the map screen to center on this location
-            // This would require a more sophisticated state management approach
-            print('Disaster location: ${payloadData['latitude']}, ${payloadData['longitude']}');
-            
-            // We could also store this in a shared preferences or state provider
-            // so the map can pick it up when it loads
-            final prefs = SharedPreferences.getInstance();
-            prefs.then((p) {
-              p.setString('disaster_notification_location', 
-                '${payloadData['latitude']},${payloadData['longitude']}');
-              p.setString('disaster_notification_id', payloadData['id'] ?? '');
-            });
-          }
+        if (payloadData['type'] == 'disaster') {
+          // Store the location data in SharedPreferences for the map to use
+          SharedPreferences.getInstance().then((prefs) {
+            if (payloadData['latitude'] != null && payloadData['longitude'] != null) {
+              prefs.setString(
+                'disaster_notification_location',
+                '${payloadData['latitude']},${payloadData['longitude']}'
+              );
+              if (payloadData['id'] != null) {
+                prefs.setString('disaster_notification_id', payloadData['id']);
+              }
+              
+              // Navigate to map tab
+              final navigationCubit = context.read<NavigationCubit>();
+              navigationCubit.setTab(NavigationTab.map);
+            }
+          });
         }
       } catch (e) {
-        // Handle legacy payload format
-        print('Failed to parse notification payload as JSON: $e');
-        
-        if (payload.contains('map')) {
-          // Get navigation cubit
-          final NavigationCubit navigationCubit = 
-              BlocProvider.of<NavigationCubit>(context, listen: false);
-          
-          // Use setTab instead of switchTab
-          print('Navigating to map tab due to notification tap');
-          navigationCubit.setTab(NavigationTab.map);
-        }
+        print('Error processing notification tap: $e');
       }
     });
   }
@@ -302,18 +282,5 @@ class _NavItem extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class NavigationCubit extends Cubit<NavigationTab> {
-  NavigationCubit() : super(NavigationTab.settings) {
-    print('DEBUG: NavigationCubit initialized with tab: ${NavigationTab.settings}');
-  }
-
-  void setTab(NavigationTab tab) {
-    print('DEBUG: Switching to tab: ${tab.name}');
-    print('DEBUG: Previous tab was: ${state.name}');
-    emit(tab);
-    print('DEBUG: Tab switch complete');
   }
 }

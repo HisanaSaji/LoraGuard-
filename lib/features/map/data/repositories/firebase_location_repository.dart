@@ -4,6 +4,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lora2/features/map/data/models/location_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lora2/features/alerts/services/notification_service.dart';
 
 class FirebaseLocationRepository {
   static final FirebaseLocationRepository _instance = FirebaseLocationRepository._internal();
@@ -11,6 +12,7 @@ class FirebaseLocationRepository {
 
   // Key for storing cached location
   static const String _locationCacheKey = 'last_known_location';
+  static const String _lastNotifiedLocationKey = 'last_notified_location';
   
   // Time threshold for sleep state (10 minutes)
   static const Duration _sleepStateThreshold = Duration(minutes: 10);
@@ -29,9 +31,12 @@ class FirebaseLocationRepository {
   
   // Reference to Firebase
   late DatabaseReference _disasterLocationRef;
+  
+  // Notification service
+  final NotificationService _notificationService = NotificationService();
 
   FirebaseLocationRepository._internal() {
-    print('FirebaseLocationRepository: Initializing');
+    print('FirebaseLocationRepository: Constructor called');
     _initDatabase();
   }
 
@@ -42,71 +47,55 @@ class FirebaseLocationRepository {
 
   Future<void> _initDatabase() async {
     try {
-      print('FirebaseLocationRepository: Initializing Firebase Database');
+      print('FirebaseLocationRepository: Starting database initialization');
       
-      // Test database connection first
-      final testRef = FirebaseDatabase.instance.ref('.info/connected');
-      testRef.onValue.listen((event) {
-        final connected = event.snapshot.value as bool? ?? false;
-        print('FirebaseLocationRepository: Database connection status: ${connected ? 'connected' : 'disconnected'}');
-      });
+      // Log Firebase instance details
+      final app = FirebaseDatabase.instance.app;
+      print('FirebaseLocationRepository: Firebase App name: ${app.name}');
+      print('FirebaseLocationRepository: Firebase App options: ${app.options.asMap}');
+      print('FirebaseLocationRepository: Firebase Database URL: ${FirebaseDatabase.instance.databaseURL}');
       
-      // Fix the typo in the reference path and try both paths
-      _disasterLocationRef = FirebaseDatabase.instance.ref().child('disaster-location');
+      // Set up the reference
+      _disasterLocationRef = FirebaseDatabase.instance.ref().child('disaster/location');
+      print('FirebaseLocationRepository: Database reference path: ${_disasterLocationRef.path}');
       
-      // Add a test read to verify connection
-      final snapshot = await _disasterLocationRef.get();
-      print('FirebaseLocationRepository: Initial data snapshot exists: ${snapshot.exists}');
-      if (snapshot.exists) {
-        print('FirebaseLocationRepository: Initial data: ${snapshot.value}');
-      } else {
-        print('FirebaseLocationRepository: No data found at disaster-location, trying alternate path...');
-        // Try alternate path if first one has no data
-        _disasterLocationRef = FirebaseDatabase.instance.ref().child('locations');
-        final altSnapshot = await _disasterLocationRef.get();
-        print('FirebaseLocationRepository: Alternate path data exists: ${altSnapshot.exists}');
-        
-        // Try a test write to verify permissions
-        try {
-          await _disasterLocationRef.child('test').set({
-            'timestamp': ServerValue.timestamp,
-            'test': true
-          });
-          print('FirebaseLocationRepository: Test write successful');
-          // Clean up test data
-          await _disasterLocationRef.child('test').remove();
-        } catch (e) {
-          print('FirebaseLocationRepository: Test write failed: $e');
-        }
+      // Test database connectivity
+      try {
+        print('FirebaseLocationRepository: Testing database connectivity...');
+        final connectedRef = FirebaseDatabase.instance.ref('.info/connected');
+        connectedRef.onValue.listen((event) {
+          print('FirebaseLocationRepository: Connection state: ${event.snapshot.value}');
+        });
+      } catch (e) {
+        print('FirebaseLocationRepository: Connectivity test failed: $e');
       }
       
-      // Load cached location first
-      await _loadCachedLocation();
+      // Get initial data
+      try {
+        print('FirebaseLocationRepository: Attempting to read data...');
+        final snapshot = await _disasterLocationRef.get();
+        print('FirebaseLocationRepository: Data exists: ${snapshot.exists}');
+        print('FirebaseLocationRepository: Raw data: ${snapshot.value}');
+        
+        if (snapshot.exists) {
+          final data = snapshot.value as Map<dynamic, dynamic>;
+          print('FirebaseLocationRepository: Data type: ${data.runtimeType}');
+          print('FirebaseLocationRepository: Data keys: ${data.keys.toList()}');
+          
+          // Try to parse and emit initial location
+          await _handleLocationData(data);
+        }
+      } catch (e, stackTrace) {
+        print('FirebaseLocationRepository: Data read error: $e');
+        print('FirebaseLocationRepository: Stack trace: $stackTrace');
+      }
       
-      // Set up Firebase listener
+      // Set up the main listener for future updates
       await _setupFirebaseListener();
       
-      // Set a fallback timeout for web
-      if (kIsWeb) {
-        print('FirebaseLocationRepository: Setting web fallback timer');
-        Timer(const Duration(seconds: 5), () {
-          if (!_hasEmittedLocation) {
-            print('FirebaseLocationRepository: Web fallback timer triggered, using cached location');
-            _setFallbackLocation();
-          }
-        });
-      }
-      
-      // Initialize sleep state timer
-      _initSleepStateTimer();
-      
     } catch (e, stackTrace) {
-      print('FirebaseLocationRepository: Error initializing database: $e');
+      print('FirebaseLocationRepository: Initialization error: $e');
       print('FirebaseLocationRepository: Stack trace: $stackTrace');
-      
-      // If Firebase fails, try to use cached location
-      await _loadCachedLocation();
-      _setFallbackLocation();
     }
   }
   
@@ -172,229 +161,154 @@ class FirebaseLocationRepository {
     }
   }
 
-  Future<void> _setupFirebaseListener() async {
+  Future<void> _handleLocationData(Map<dynamic, dynamic> data) async {
     try {
-      print('FirebaseLocationRepository: Setting up Firebase listener');
+      final latitude = data['latitude'];
+      final longitude = data['longitude'];
       
-      // Listen for location updates
-      _disasterLocationRef.onValue.listen((event) {
-        _updateLastActivityTime();
-        
-        if (event.snapshot.value != null) {
-          print('FirebaseLocationRepository: Received Firebase data: ${event.snapshot.value}');
-          try {
-            final dynamic locationData = event.snapshot.value;
-            _locationsList = [];
-            
-            // Handle the format "disaster-location-latitude:-longitude"
-            if (locationData is String) {
-              // Parse the single string format
-              _parseDisasterLocationString(locationData);
-            } else if (locationData is Map) {
-              // If it's a map, process each entry
-              locationData.forEach((key, value) {
-                try {
-                  if (value is String && key.toString().contains('-')) {
-                    // It's likely in the format "latitude:-longitude"
-                    _parseDisasterLocationEntry(key.toString(), value.toString());
-                  } else if (value is Map) {
-                    // It might be a regular JSON structure
-                    final location = LocationModel.fromJson(
-                      Map<String, dynamic>.from(value)..putIfAbsent('id', () => key.toString()),
-                    );
-                    
-                    print('FirebaseLocationRepository: Parsed location: $location');
-                    _locationsList.add(location);
-                    
-                    // Update last known location with the most recent
-                    if (_lastKnownLocation == null || 
-                        location.timestamp.isAfter(_lastKnownLocation!.timestamp)) {
-                      _lastKnownLocation = location;
-                      _cacheLocation(location);
-                    }
-                  }
-                } catch (e, stackTrace) {
-                  print('FirebaseLocationRepository: Error parsing location entry: $e');
-                  print('FirebaseLocationRepository: Stack trace: $stackTrace');
-                }
-              });
-              
-              // Sort by timestamp (newest first)
-              _locationsList.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-            }
-            
-            print('FirebaseLocationRepository: Processed ${_locationsList.length} locations');
-            
-            if (_locationsList.isNotEmpty) {
-              _locationController.add(_locationsList);
-              _hasEmittedLocation = true;
-            } else {
-              print('FirebaseLocationRepository: No valid locations found in data');
-              _setFallbackLocation();
-            }
-          } catch (e, stackTrace) {
-            print('FirebaseLocationRepository: Error processing Firebase data: $e');
-            print('FirebaseLocationRepository: Stack trace: $stackTrace');
-            _setFallbackLocation();
-          }
-        } else {
-          print('FirebaseLocationRepository: Firebase returned null data');
-          _setFallbackLocation();
-        }
-      }, onError: (error, stackTrace) {
-        print('FirebaseLocationRepository: Firebase listener error: $error');
-        print('FirebaseLocationRepository: Stack trace: $stackTrace');
-        _setFallbackLocation();
-      });
+      if (latitude == null || longitude == null) {
+        print('FirebaseLocationRepository: Missing latitude or longitude in data');
+        return;
+      }
       
-      // Listen for location removals
-      _disasterLocationRef.onChildRemoved.listen((event) {
-        _updateLastActivityTime();
-        
-        final String deletedId = event.snapshot.key ?? '';
-        print('FirebaseLocationRepository: Location removed: $deletedId');
-        
-        if (deletedId.isNotEmpty) {
-          _locationDeletedController.add(deletedId);
-          
-          // Remove from our local list
-          _locationsList.removeWhere((location) => location.id == deletedId);
-          
-          // Emit updated list
-          if (_locationsList.isNotEmpty) {
-            _locationController.add(_locationsList);
-          } else {
-            print('FirebaseLocationRepository: No locations left after removal');
-            _setFallbackLocation();
-          }
-        }
-      }, onError: (error, stackTrace) {
-        print('FirebaseLocationRepository: Error in removal listener: $error');
-        print('FirebaseLocationRepository: Stack trace: $stackTrace');
-      });
+      print('FirebaseLocationRepository: Raw latitude: $latitude (${latitude.runtimeType})');
+      print('FirebaseLocationRepository: Raw longitude: $longitude (${longitude.runtimeType})');
       
+      // Extract latitude and longitude directly from the data
+      final parsedLatitude = (latitude is String) ? 
+          double.parse(latitude.toString()) : 
+          (latitude as num).toDouble();
+      
+      final parsedLongitude = (longitude is String) ? 
+          double.parse(longitude.toString()) : 
+          (longitude as num).toDouble();
+
+      print('FirebaseLocationRepository: Parsed location - lat: $parsedLatitude, lng: $parsedLongitude');
+
+      // Create location model
+      final location = LocationModel(
+        id: 'current',
+        latitude: parsedLatitude,
+        longitude: parsedLongitude,
+        altitude: 0.0,
+        speed: 0.0,
+        timestamp: DateTime.now(),
+        status: 'active',
+        description: 'Current disaster location'
+      );
+
+      // Update locations list with single location
+      _locationsList = [location];
+      _lastKnownLocation = location;
+      
+      // Cache the location
+      await _cacheLocation(location);
+      
+      // Emit the new location
+      print('FirebaseLocationRepository: Emitting location update');
+      _locationController.add(_locationsList);
+      _hasEmittedLocation = true;
+
     } catch (e, stackTrace) {
-      print('FirebaseLocationRepository: Error setting up Firebase listener: $e');
+      print('FirebaseLocationRepository: Data parsing error: $e');
       print('FirebaseLocationRepository: Stack trace: $stackTrace');
-      _setFallbackLocation();
+      if (_locationsList.isEmpty) {
+        _locationController.add([]);
+      }
     }
   }
 
-  // Parse a disaster location in the format "latitude:-longitude"
-  void _parseDisasterLocationEntry(String key, String value) {
+  Future<void> _setupFirebaseListener() async {
     try {
-      print('FirebaseLocationRepository: Parsing disaster location entry: $key, $value');
+      print('FirebaseLocationRepository: Setting up data listener');
       
-      // Extract latitude and longitude from key format "latitude:-longitude"
-      final parts = key.split('-');
-      if (parts.length >= 2) {
-        // The last part should contain "latitude:longitude"
-        final coordParts = parts.last.split(':');
-        if (coordParts.length == 2) {
-          final latitude = double.tryParse(coordParts[0]);
-          final longitude = double.tryParse(coordParts[1]);
+      _disasterLocationRef.onValue.listen(
+        (event) {
+          print('FirebaseLocationRepository: Received data event');
+          print('FirebaseLocationRepository: Event type: ${event.type}');
+          print('FirebaseLocationRepository: Raw data: ${event.snapshot.value}');
           
-          if (latitude != null && longitude != null) {
-            final location = LocationModel(
-              id: key,
-              latitude: latitude,
-              longitude: longitude,
-              altitude: 0.0,
-              speed: 0.0,
-              timestamp: DateTime.now(),
-              status: 'Disaster',
-              description: value,
-            );
-            
-            _locationsList.add(location);
-            
-            // Update last known location
-            if (_lastKnownLocation == null) {
-              _lastKnownLocation = location;
-              _cacheLocation(location);
+          final data = event.snapshot.value;
+          if (data != null && data is Map) {
+            _handleLocationData(data);
+          } else {
+            print('FirebaseLocationRepository: Invalid data format: ${data?.runtimeType ?? 'null'}');
+            if (_locationsList.isEmpty) {
+              _locationController.add([]);
             }
           }
-        }
+        },
+        onError: (error, stackTrace) {
+          print('FirebaseLocationRepository: Stream error: $error');
+          print('FirebaseLocationRepository: Stack trace: $stackTrace');
+          if (_locationsList.isEmpty) {
+            _locationController.add([]);
+          }
+        },
+        cancelOnError: false,
+      );
+    } catch (e, stackTrace) {
+      print('FirebaseLocationRepository: Listener setup error: $e');
+      print('FirebaseLocationRepository: Stack trace: $stackTrace');
+      if (_locationsList.isEmpty) {
+        _locationController.add([]);
+      }
+    }
+  }
+
+  Future<void> _checkAndNotifyLocationChange(LocationModel newLocation) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastNotifiedLocationJson = prefs.getString(_lastNotifiedLocationKey);
+      
+      bool shouldNotify = true;
+      
+      if (lastNotifiedLocationJson != null) {
+        final lastNotifiedLocation = LocationModel.fromJson(jsonDecode(lastNotifiedLocationJson));
+        
+        // Check if location has changed significantly (e.g., more than 10 meters)
+        final hasSignificantChange = _calculateDistance(
+          lastNotifiedLocation.latitude,
+          lastNotifiedLocation.longitude,
+          newLocation.latitude,
+          newLocation.longitude
+        ) > 10; // 10 meters threshold
+        
+        shouldNotify = hasSignificantChange;
+      }
+      
+      if (shouldNotify) {
+        // Create notification payload
+        final Map<String, dynamic> payload = {
+          'type': 'disaster',
+          'id': newLocation.id,
+          'latitude': newLocation.latitude.toString(),
+          'longitude': newLocation.longitude.toString(),
+        };
+        
+        // Show notification
+        await _notificationService.showNotification(
+          title: 'Disaster Alert!',
+          body: 'Disaster detected at new location. Tap to view on map.',
+          payload: jsonEncode(payload),
+        );
+        
+        // Save this location as last notified
+        await prefs.setString(_lastNotifiedLocationKey, jsonEncode(newLocation.toJson()));
       }
     } catch (e) {
-      print('FirebaseLocationRepository: Error parsing disaster location entry: $e');
+      print('FirebaseLocationRepository: Error handling location notification: $e');
     }
   }
   
-  // Parse a disaster location in the format "diaster-location-latitude:-longitude"
-  void _parseDisasterLocationString(String locationString) {
-    try {
-      print('FirebaseLocationRepository: Parsing disaster location string: $locationString');
-      
-      // Split the string to extract the coordinates
-      final parts = locationString.split('-');
-      if (parts.length >= 3 && parts[0] == 'diaster' && parts[1] == 'location') {
-        // The last part should be "latitude:longitude"
-        final coordPart = parts[2];
-        final coordParts = coordPart.split(':');
-        
-        if (coordParts.length == 2) {
-          final latitude = double.tryParse(coordParts[0]);
-          final longitude = double.tryParse(coordParts[1]);
-          
-          if (latitude != null && longitude != null) {
-            final location = LocationModel(
-              id: locationString,
-              latitude: latitude,
-              longitude: longitude,
-              altitude: 0.0,
-              speed: 0.0,
-              timestamp: DateTime.now(),
-              status: 'Disaster',
-              description: 'Disaster at location',
-            );
-            
-            _locationsList.add(location);
-            
-            // Update last known location
-            if (_lastKnownLocation == null) {
-              _lastKnownLocation = location;
-              _cacheLocation(location);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      print('FirebaseLocationRepository: Error parsing disaster location string: $e');
-    }
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    // Simple Euclidean distance for demo - in real app, use Haversine formula
+    return ((lat2 - lat1) * (lat2 - lat1) + (lon2 - lon1) * (lon2 - lon1)) * 111000;
   }
 
   void _setFallbackLocation() {
-    // Only set fallback if we haven't emitted a location yet
-    if (!_hasEmittedLocation) {
-      print('FirebaseLocationRepository: Setting fallback location');
-      
-      // If we have a cached location, use it
-      if (_lastKnownLocation != null) {
-        print('FirebaseLocationRepository: Using cached location as fallback');
-        _locationsList = [_lastKnownLocation!];
-      } else {
-        // Otherwise use a default location (centered on Philippines)
-        print('FirebaseLocationRepository: Using default location as fallback');
-        final defaultLocation = LocationModel(
-          id: 'default',
-          latitude: 14.5995,
-          longitude: 120.9842,
-          altitude: 0.0,
-          speed: 0.0,
-          timestamp: DateTime.now(),
-          status: 'Default',
-          description: 'Default location when no data is available',
-        );
-        
-        _lastKnownLocation = defaultLocation;
-        _locationsList = [defaultLocation];
-        
-        // Cache this default location
-        _cacheLocation(defaultLocation);
-      }
-      
-      // Emit the fallback location
+    if (!_hasEmittedLocation && _lastKnownLocation != null) {
+      _locationsList = [_lastKnownLocation!];
       _locationController.add(_locationsList);
       _hasEmittedLocation = true;
     }
