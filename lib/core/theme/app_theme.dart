@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   static const Color primaryOrange = Color(0xFFFF4D32);
+  static const Color primaryColor = primaryOrange;
   static const Color pureBlack = Color(0xFF000000);
   static const Color darkGrey = Color(0xFF1C1C1E);
+  static const Color darkerGrey = Color(0xFF121214);
   static const Color mediumGrey = Color(0xFF2C2C2E);
   static const Color lightGrey = Color(0xFF3A3A3C);
 
@@ -69,6 +71,24 @@ class AppTheme {
         color: primaryOrange,
         borderRadius: BorderRadius.circular(20),
       ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: MaterialStateProperty.resolveWith<Color>((states) {
+        if (states.contains(MaterialState.selected)) {
+          return primaryOrange;
+        }
+        return Colors.grey;
+      }),
+      trackColor: MaterialStateProperty.resolveWith<Color>((states) {
+        if (states.contains(MaterialState.selected)) {
+          return primaryOrange.withOpacity(0.5);
+        }
+        return Colors.grey.withOpacity(0.5);
+      }),
+    ),
+    dividerTheme: const DividerThemeData(
+      color: mediumGrey,
+      thickness: 1,
     ),
   );
 } 

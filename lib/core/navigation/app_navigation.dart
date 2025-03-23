@@ -10,8 +10,8 @@ enum NavigationTab {
 }
 
 class NavigationCubit extends Cubit<NavigationTab> {
-  NavigationCubit() : super(NavigationTab.alerts) {
-    print('DEBUG: NavigationCubit initialized with tab: ${NavigationTab.alerts}');
+  NavigationCubit() : super(NavigationTab.settings) {
+    print('DEBUG: NavigationCubit initialized with tab: ${NavigationTab.settings}');
   }
 
   void setTab(NavigationTab tab) {

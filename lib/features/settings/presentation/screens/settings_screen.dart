@@ -62,6 +62,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     print('SettingsScreen - build called');
+    print('SettingsScreen - Current context theme: ${Theme.of(context).scaffoldBackgroundColor}');
+    print('SettingsScreen - Screen size: ${MediaQuery.of(context).size}');
+    
     return Scaffold(
       backgroundColor: AppTheme.pureBlack, // Ensure background color is set
       body: SafeArea(

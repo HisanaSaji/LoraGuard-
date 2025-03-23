@@ -3,16 +3,22 @@ import 'package:firebase_database/firebase_database.dart';
 import '../models/location_model.dart';
 
 class LocationRepository {
-  // Update reference to match the actual database structure
-  final DatabaseReference _databaseReference = FirebaseDatabase.instance.ref().child('disaster/location');
+  final DatabaseReference _database = FirebaseDatabase.instance.ref().child('locations');
   
   Future<void> initializeDefaultLocation() async {
     try {
       // Check if data exists
-      final snapshot = await _databaseReference.get();
+      final snapshot = await _database.get();
       if (!snapshot.exists) {
         // No data exists, set default data
-        await updateLocation(8.5241, 76.9366);
+        await updateLocation(LocationModel(
+          latitude: 8.5241,
+          longitude: 76.9366,
+          localArea: 'Unknown Area',
+          city: 'Unknown City',
+          disasterDetected: false,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        ));
         print('Initialized default location data');
       }
     } catch (e) {
@@ -23,47 +29,30 @@ class LocationRepository {
 
   Stream<LocationModel> getLocationUpdates() {
     print('Starting location updates stream...');
-    return _databaseReference.onValue.map((event) {
+    return _database.onValue.map((event) {
       final data = event.snapshot.value as Map<dynamic, dynamic>?;
       print('Received Firebase data: $data');
       
-      if (data != null) {
-        try {
-          // Extract only latitude and longitude
-          final latitude = double.parse(data['latitude']?.toString() ?? '0.0');
-          final longitude = double.parse(data['longitude']?.toString() ?? '0.0');
-          
-          final location = LocationModel(
-            latitude: latitude,
-            longitude: longitude,
-            timestamp: DateTime.now().millisecondsSinceEpoch,
-            disasterDetected: false,
-            localArea: 'Unknown Area',
-            city: 'Unknown City',
-          );
-          
-          print('Created LocationModel: ${location.toString()}');
-          return location;
-        } catch (e) {
-          print('Error parsing location data: $e');
-          rethrow;
-        }
-      } else {
+      if (data == null) {
         print('No location data available in Firebase');
-        throw Exception('No location data available');
+        return LocationModel(
+          latitude: 8.5241,
+          longitude: 76.9366,
+          localArea: 'Unknown Area',
+          city: 'Unknown City',
+          disasterDetected: false,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        );
       }
+
+      return LocationModel.fromJson(data);
     });
   }
 
-  // Method to update location data
-  Future<void> updateLocation(double latitude, double longitude) async {
+  Future<void> updateLocation(LocationModel location) async {
     try {
-      await _databaseReference.set({
-        'latitude': latitude.toString(),
-        'longitude': longitude.toString(),
-      });
-      
-      print('Updated location in Firebase: lat=$latitude, lon=$longitude');
+      await _database.set(location.toJson());
+      print('Updated location in Firebase: lat=${location.latitude}, lon=${location.longitude}');
     } catch (e) {
       print('Error updating location: $e');
       throw Exception('Failed to update location');

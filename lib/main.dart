@@ -10,47 +10,131 @@ import 'package:lora2/features/emergency/presentation/screens/emergency_screen.d
 import 'package:lora2/features/map/presentation/screens/map_screen.dart';
 import 'package:lora2/features/settings/presentation/screens/settings_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:lora2/core/providers/theme_provider.dart';
 import 'package:lora2/core/theme/theme_cubit.dart';
 import 'package:lora2/features/alerts/services/notification_service.dart';
+import 'dart:async';
+import 'package:lora2/firebase_options.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize notification service
-  await NotificationService().initialize();
+  // Initialize notification service first
+  final NotificationService notificationService = NotificationService();
+  await notificationService.initialize();
   
   try {
-    print('Starting Firebase initialization...');
     await Firebase.initializeApp(
-      options: const FirebaseOptions(
-        apiKey: 'AIzaSyAOI4FeMWl7bwfu322Dj1uyuZbvKT7qfTo',
-        appId: '1:932534568815:web:3e7a8fe28da55a7bb44a9a',
-        messagingSenderId: '932534568815',
-        projectId: 'loratest-76a91',
-        authDomain: 'loratest-76a91.firebaseapp.com',
-        databaseURL: 'https://loratest-76a91-default-rtdb.firebaseio.com',
-        storageBucket: 'loratest-76a91.firebasestorage.app',
-      ),
+      options: DefaultFirebaseOptions.currentPlatform,
     );
     print('Firebase initialized successfully');
   } catch (e) {
-    print('Firebase initialization error: $e');
+    print('Failed to initialize Firebase: $e');
   }
+
+  // Initialize theme provider
+  final themeProvider = ThemeProvider();
+  // Simply create the theme provider without calling initialize if the method doesn't exist
+  
+  // Use MockAlertRepository instead of AlertRepository to avoid the abstract class error
+  final alertRepository = MockAlertRepository();
   
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider<ThemeProvider>.value(
+          value: themeProvider,
+        ),
+        Provider<AlertRepository>.value(
+          value: alertRepository,
+        ),
+        Provider<NotificationService>.value(
+          value: notificationService,
+        ),
       ],
       child: const LoRaGuardApp(),
     ),
   );
 }
 
-class LoRaGuardApp extends StatelessWidget {
-  const LoRaGuardApp({super.key});
+class LoRaGuardApp extends StatefulWidget {
+  const LoRaGuardApp({Key? key}) : super(key: key);
+
+  @override
+  State<LoRaGuardApp> createState() => _LoRaGuardAppState();
+}
+
+class _LoRaGuardAppState extends State<LoRaGuardApp> {
+  StreamSubscription? _notificationSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen for notification taps
+    _setupNotificationListeners();
+  }
+
+  void _setupNotificationListeners() {
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    _notificationSubscription = notificationService.onNotificationTap.listen((String payload) {
+      print('Notification tap received with payload: $payload');
+      
+      try {
+        // Try to parse the payload as JSON first
+        final Map<String, dynamic> payloadData = jsonDecode(payload);
+        
+        if (payloadData.containsKey('type') && payloadData['type'] == 'disaster') {
+          print('Processing disaster notification tap');
+          
+          // Navigate to map tab
+          final NavigationCubit navigationCubit = 
+              BlocProvider.of<NavigationCubit>(context, listen: false);
+          
+          print('Navigating to map tab due to disaster notification tap');
+          navigationCubit.setTab(NavigationTab.map);
+          
+          // Get latitude and longitude from payload if available
+          if (payloadData.containsKey('latitude') && payloadData.containsKey('longitude')) {
+            // This information could be passed to the map screen to center on this location
+            // This would require a more sophisticated state management approach
+            print('Disaster location: ${payloadData['latitude']}, ${payloadData['longitude']}');
+            
+            // We could also store this in a shared preferences or state provider
+            // so the map can pick it up when it loads
+            final prefs = SharedPreferences.getInstance();
+            prefs.then((p) {
+              p.setString('disaster_notification_location', 
+                '${payloadData['latitude']},${payloadData['longitude']}');
+              p.setString('disaster_notification_id', payloadData['id'] ?? '');
+            });
+          }
+        }
+      } catch (e) {
+        // Handle legacy payload format
+        print('Failed to parse notification payload as JSON: $e');
+        
+        if (payload.contains('map')) {
+          // Get navigation cubit
+          final NavigationCubit navigationCubit = 
+              BlocProvider.of<NavigationCubit>(context, listen: false);
+          
+          // Use setTab instead of switchTab
+          print('Navigating to map tab due to notification tap');
+          navigationCubit.setTab(NavigationTab.map);
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,15 +178,16 @@ class AppShell extends StatelessWidget {
       body: BlocBuilder<NavigationCubit, NavigationTab>(
         builder: (context, tab) {
           print('Current tab: ${tab.name}');
-          return IndexedStack(
-            index: tab.index,
-            children: const [
-              AlertsScreen(),
-              EmergencyScreen(),
-              MapScreen(),
-              SettingsScreen(),
-            ],
-          );
+          switch (tab) {
+            case NavigationTab.alerts:
+              return const AlertsScreen();
+            case NavigationTab.emergency:
+              return const EmergencyScreen();
+            case NavigationTab.map:
+              return const MapScreen();
+            case NavigationTab.settings:
+              return const SettingsScreen();
+          }
         },
       ),
       bottomNavigationBar: const _BottomNavBar(),
@@ -217,5 +302,18 @@ class _NavItem extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class NavigationCubit extends Cubit<NavigationTab> {
+  NavigationCubit() : super(NavigationTab.settings) {
+    print('DEBUG: NavigationCubit initialized with tab: ${NavigationTab.settings}');
+  }
+
+  void setTab(NavigationTab tab) {
+    print('DEBUG: Switching to tab: ${tab.name}');
+    print('DEBUG: Previous tab was: ${state.name}');
+    emit(tab);
+    print('DEBUG: Tab switch complete');
   }
 }
