@@ -4,7 +4,7 @@ import 'package:lora2/core/navigation/app_navigation.dart';
 import 'package:lora2/core/theme/app_theme.dart';
 import 'package:lora2/features/alerts/data/mock_alert_repository.dart';
 import 'package:lora2/features/alerts/domain/alert_repository.dart';
-import 'package:lora2/features/alerts/presentation/cubit/alert_cubit.dart';
+import 'package:lora2/features/alerts/cubit/alert_cubit.dart';
 import 'package:lora2/features/alerts/presentation/screens/alerts_screen.dart';
 import 'package:lora2/features/emergency/presentation/screens/emergency_screen.dart';
 import 'package:lora2/features/map/presentation/screens/map_screen.dart';
@@ -19,6 +19,7 @@ import 'dart:async';
 import 'package:lora2/firebase_options.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:firebase_database/firebase_database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,8 +33,17 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     print('Firebase initialized successfully');
-  } catch (e) {
+    
+    // Add database URL check
+    final dbUrl = FirebaseDatabase.instance.databaseURL;
+    print('Firebase Database URL: $dbUrl');
+    if (dbUrl == null || dbUrl.isEmpty) {
+      print('Warning: Firebase Database URL is not configured!');
+    }
+    
+  } catch (e, stackTrace) {
     print('Failed to initialize Firebase: $e');
+    print('Stack trace: $stackTrace');
   }
 
   // Initialize theme provider

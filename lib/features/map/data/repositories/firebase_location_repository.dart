@@ -29,11 +29,14 @@ class FirebaseLocationRepository {
   Timer? _sleepStateTimer;
   DateTime _lastActivityTime = DateTime.now();
   
-  // Reference to Firebase
-  late DatabaseReference _disasterLocationRef;
+  // Reference to Firebase - using the correct path
+  late final DatabaseReference _disasterLocationRef;
   
   // Notification service
   final NotificationService _notificationService = NotificationService();
+
+  final DatabaseReference _database = FirebaseDatabase.instance.ref().child('locations');
+  List<LocationModel> _lastKnownLocations = [];
 
   FirebaseLocationRepository._internal() {
     print('FirebaseLocationRepository: Constructor called');
@@ -49,53 +52,28 @@ class FirebaseLocationRepository {
     try {
       print('FirebaseLocationRepository: Starting database initialization');
       
-      // Log Firebase instance details
-      final app = FirebaseDatabase.instance.app;
-      print('FirebaseLocationRepository: Firebase App name: ${app.name}');
-      print('FirebaseLocationRepository: Firebase App options: ${app.options.asMap}');
-      print('FirebaseLocationRepository: Firebase Database URL: ${FirebaseDatabase.instance.databaseURL}');
-      
-      // Set up the reference
+      // Set up the reference to the correct path
       _disasterLocationRef = FirebaseDatabase.instance.ref().child('disaster/location');
       print('FirebaseLocationRepository: Database reference path: ${_disasterLocationRef.path}');
       
-      // Test database connectivity
+      // Test database connectivity and get initial data
       try {
-        print('FirebaseLocationRepository: Testing database connectivity...');
-        final connectedRef = FirebaseDatabase.instance.ref('.info/connected');
-        connectedRef.onValue.listen((event) {
-          print('FirebaseLocationRepository: Connection state: ${event.snapshot.value}');
-        });
-      } catch (e) {
-        print('FirebaseLocationRepository: Connectivity test failed: $e');
-      }
-      
-      // Get initial data
-      try {
-        print('FirebaseLocationRepository: Attempting to read data...');
         final snapshot = await _disasterLocationRef.get();
-        print('FirebaseLocationRepository: Data exists: ${snapshot.exists}');
-        print('FirebaseLocationRepository: Raw data: ${snapshot.value}');
-        
+        print('FirebaseLocationRepository: Initial data exists: ${snapshot.exists}');
         if (snapshot.exists) {
+          print('FirebaseLocationRepository: Initial data: ${snapshot.value}');
           final data = snapshot.value as Map<dynamic, dynamic>;
-          print('FirebaseLocationRepository: Data type: ${data.runtimeType}');
-          print('FirebaseLocationRepository: Data keys: ${data.keys.toList()}');
-          
-          // Try to parse and emit initial location
           await _handleLocationData(data);
         }
-      } catch (e, stackTrace) {
-        print('FirebaseLocationRepository: Data read error: $e');
-        print('FirebaseLocationRepository: Stack trace: $stackTrace');
+      } catch (e) {
+        print('FirebaseLocationRepository: Initial data fetch error: $e');
       }
+
+      // Set up real-time listener
+      _setupRealtimeListener();
       
-      // Set up the main listener for future updates
-      await _setupFirebaseListener();
-      
-    } catch (e, stackTrace) {
+    } catch (e) {
       print('FirebaseLocationRepository: Initialization error: $e');
-      print('FirebaseLocationRepository: Stack trace: $stackTrace');
     }
   }
   
@@ -171,10 +149,9 @@ class FirebaseLocationRepository {
         return;
       }
       
-      print('FirebaseLocationRepository: Raw latitude: $latitude (${latitude.runtimeType})');
-      print('FirebaseLocationRepository: Raw longitude: $longitude (${longitude.runtimeType})');
+      print('FirebaseLocationRepository: Raw coordinates - lat: $latitude, lng: $longitude');
       
-      // Extract latitude and longitude directly from the data
+      // Parse the coordinates
       final parsedLatitude = (latitude is String) ? 
           double.parse(latitude.toString()) : 
           (latitude as num).toDouble();
@@ -183,8 +160,8 @@ class FirebaseLocationRepository {
           double.parse(longitude.toString()) : 
           (longitude as num).toDouble();
 
-      print('FirebaseLocationRepository: Parsed location - lat: $parsedLatitude, lng: $parsedLongitude');
-
+      print('FirebaseLocationRepository: Parsed coordinates - lat: $parsedLatitude, lng: $parsedLongitude');
+      
       // Create location model
       final location = LocationModel(
         id: 'current',
@@ -197,63 +174,40 @@ class FirebaseLocationRepository {
         description: 'Current disaster location'
       );
 
-      // Update locations list with single location
+      // Check if this is a new location different from the last known location
+      if (_lastKnownLocation != null && !_areLocationsEqual(location, _lastKnownLocation!)) {
+        print('FirebaseLocationRepository: Location changed, checking for notification');
+        await _checkAndNotifyLocationChange(location);
+      }
+
       _locationsList = [location];
       _lastKnownLocation = location;
       
-      // Cache the location
+      // Cache the new location
       await _cacheLocation(location);
       
-      // Emit the new location
-      print('FirebaseLocationRepository: Emitting location update');
+      print('FirebaseLocationRepository: Emitting new location');
       _locationController.add(_locationsList);
-      _hasEmittedLocation = true;
 
-    } catch (e, stackTrace) {
-      print('FirebaseLocationRepository: Data parsing error: $e');
-      print('FirebaseLocationRepository: Stack trace: $stackTrace');
-      if (_locationsList.isEmpty) {
-        _locationController.add([]);
-      }
+    } catch (e) {
+      print('FirebaseLocationRepository: Error handling location data: $e');
     }
   }
 
-  Future<void> _setupFirebaseListener() async {
-    try {
-      print('FirebaseLocationRepository: Setting up data listener');
-      
-      _disasterLocationRef.onValue.listen(
-        (event) {
-          print('FirebaseLocationRepository: Received data event');
-          print('FirebaseLocationRepository: Event type: ${event.type}');
-          print('FirebaseLocationRepository: Raw data: ${event.snapshot.value}');
-          
-          final data = event.snapshot.value;
-          if (data != null && data is Map) {
-            _handleLocationData(data);
-          } else {
-            print('FirebaseLocationRepository: Invalid data format: ${data?.runtimeType ?? 'null'}');
-            if (_locationsList.isEmpty) {
-              _locationController.add([]);
-            }
-          }
-        },
-        onError: (error, stackTrace) {
-          print('FirebaseLocationRepository: Stream error: $error');
-          print('FirebaseLocationRepository: Stack trace: $stackTrace');
-          if (_locationsList.isEmpty) {
-            _locationController.add([]);
-          }
-        },
-        cancelOnError: false,
-      );
-    } catch (e, stackTrace) {
-      print('FirebaseLocationRepository: Listener setup error: $e');
-      print('FirebaseLocationRepository: Stack trace: $stackTrace');
-      if (_locationsList.isEmpty) {
-        _locationController.add([]);
+  void _setupRealtimeListener() {
+    print('FirebaseLocationRepository: Setting up realtime listener');
+    _disasterLocationRef.onValue.listen(
+      (event) {
+        print('FirebaseLocationRepository: Received realtime update');
+        final data = event.snapshot.value;
+        if (data != null && data is Map) {
+          _handleLocationData(data);
+        }
+      },
+      onError: (error) {
+        print('FirebaseLocationRepository: Realtime listener error: $error');
       }
-    }
+    );
   }
 
   Future<void> _checkAndNotifyLocationChange(LocationModel newLocation) async {
@@ -278,6 +232,8 @@ class FirebaseLocationRepository {
       }
       
       if (shouldNotify) {
+        print('FirebaseLocationRepository: Significant location change detected, sending notification');
+        
         // Create notification payload
         final Map<String, dynamic> payload = {
           'type': 'disaster',
@@ -288,8 +244,8 @@ class FirebaseLocationRepository {
         
         // Show notification
         await _notificationService.showNotification(
-          title: 'Disaster Alert!',
-          body: 'Disaster detected at new location. Tap to view on map.',
+          title: 'Location Update',
+          body: 'Disaster location has changed. Check the map for details.',
           payload: jsonEncode(payload),
         );
         
@@ -326,5 +282,15 @@ class FirebaseLocationRepository {
     _locationController.close();
     _locationDeletedController.close();
     _sleepStateTimer?.cancel();
+  }
+
+  Stream<List<LocationModel>> getLocationsStream() {
+    print('FirebaseLocationRepository: Getting locations stream');
+    return _locationController.stream;
+  }
+
+  bool _areLocationsEqual(LocationModel a, LocationModel b) {
+    return a.latitude == b.latitude && 
+           a.longitude == b.longitude;
   }
 }

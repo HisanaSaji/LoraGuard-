@@ -4,10 +4,11 @@ import 'package:lora2/core/services/weather_service.dart';
 import 'package:lora2/core/theme/app_theme.dart';
 import 'package:lora2/core/config/env_config.dart';
 import 'package:lora2/core/navigation/app_navigation.dart';
-import 'package:lora2/features/alerts/presentation/cubit/alert_cubit.dart';
-import 'package:lora2/features/alerts/presentation/cubit/alert_state.dart';
+import 'package:lora2/features/alerts/cubit/alert_cubit.dart';
+import 'package:lora2/features/alerts/cubit/alert_state.dart';
 import 'package:lora2/features/alerts/presentation/widgets/alert_card.dart';
 import 'package:lora2/features/alerts/presentation/widgets/weather_card.dart';
+import 'package:lora2/features/alerts/models/alert_model.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});

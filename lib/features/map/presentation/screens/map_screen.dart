@@ -12,6 +12,9 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lora2/core/theme/app_theme.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:lora2/features/alerts/cubit/alert_cubit.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geocoding/geocoding.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -115,47 +118,101 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
+  Future<String> _getPlaceNameFromCoordinates(double latitude, double longitude) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(latitude, longitude);
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        // Format: locality, subAdministrativeArea
+        // Example: "Palayam, Thiruvananthapuram"
+        String locationName = '';
+        if (place.locality?.isNotEmpty == true) {
+          locationName = place.locality!;
+        }
+        if (place.subAdministrativeArea?.isNotEmpty == true) {
+          if (locationName.isNotEmpty) {
+            locationName += ', ';
+          }
+          locationName += place.subAdministrativeArea!;
+        }
+        return locationName.isNotEmpty ? locationName : 'Unknown Location';
+      }
+    } catch (e) {
+      print('Error getting place name: $e');
+    }
+    return 'Unknown Location';
+  }
+
   void _setupFirebaseListeners() {
     print('MapScreen: Setting up Firebase listeners');
-    
-    // Listen for location updates
-    _locationSubscription = _locationRepository.locationStream.listen(
-      (locations) {
+    _locationSubscription = _locationRepository.getLocationsStream().listen(
+      (locations) async {
         print('MapScreen: Received ${locations.length} locations');
         
-        if (mounted) {
+        if (locations.isEmpty) {
           setState(() {
-            _locations = locations;
             _isLoading = false;
-            _showErrorMessage = false;
-            
-            // Only center map on first load or when explicitly requested
-            if (_initialLoad && locations.isNotEmpty) {
-              print('MapScreen: Initial load - centering map on first location');
-              try {
-                _mapController.move(
-                  LatLng(locations.first.latitude, locations.first.longitude),
-                  13.0
-                );
-                _isMapReady = true;
-              } catch (e) {
-                print('MapScreen: Error moving map: $e');
-              }
-              _initialLoad = false;
-            }
+            _locations = [];
           });
+          return;
         }
+
+        // Get the most recent location
+        final latestLocation = locations.first;
+        
+        setState(() {
+          _isLoading = false;
+          _showErrorMessage = false;
+          _locations = locations;
+        });
+
+        // Move map to new location if we have a controller
+        if (_mapController != null && _isMapReady) {
+          print('MapScreen: Moving map to new location: ${latestLocation.latitude}, ${latestLocation.longitude}');
+          _mapController.move(
+            LatLng(latestLocation.latitude, latestLocation.longitude),
+            13.0
+          );
+        }
+
+        // Get place name from coordinates for notification
+        try {
+          final placeName = await _getPlaceNameFromCoordinates(
+            latestLocation.latitude,
+            latestLocation.longitude
+          );
+          
+          if (!_initialLoad) {
+            print('MapScreen: New location detected at $placeName');
+            
+            // Add alert with place name
+            if (mounted) {
+              context.read<AlertCubit>().addAlert(
+                location: placeName,
+                description: 'DISASTER DETECTED in $placeName',
+              );
+              
+              // Show notification
+              NotificationService().showNotification(
+                title: 'Location Update',
+                body: 'New disaster location detected in $placeName',
+              );
+            }
+          }
+        } catch (e) {
+          print('MapScreen: Error processing new location: $e');
+        }
+
+        _initialLoad = false;
       },
       onError: (error) {
-        print('MapScreen: Error from location stream: $error');
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _errorMessage = 'Error loading locations: $error';
-            _showErrorMessage = true;
-          });
-        }
-      }
+        print('MapScreen: Error in location stream: $error');
+        setState(() {
+          _isLoading = false;
+          _showErrorMessage = true;
+          _errorMessage = 'Failed to load locations: $error';
+        });
+      },
     );
 
     // Initialize timeout timer
@@ -258,7 +315,16 @@ class _MapScreenState extends State<MapScreen> {
                   userAgentPackageName: 'com.example.app',
                 ),
                 MarkerLayer(
-                  markers: _buildMarkers(),
+                  markers: _locations.map((location) => Marker(
+                    point: LatLng(location.latitude, location.longitude),
+                    width: 40,
+                    height: 40,
+                    child: Icon(
+                      Icons.location_on,
+                      color: Colors.red,
+                      size: 40,
+                    ),
+                  )).toList(),
                 ),
               ],
             ),
@@ -286,22 +352,6 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
     );
-  }
-
-  List<Marker> _buildMarkers() {
-    print('MapScreen: Building ${_locations.length} markers');
-    return _locations.map((location) {
-      return Marker(
-        width: 40.0,
-        height: 40.0,
-        point: LatLng(location.latitude, location.longitude),
-        child: Icon(
-          Icons.location_on,
-          color: Colors.red,
-          size: 40,
-        ),
-      );
-    }).toList();
   }
 
   void _showDisasterDetails(LocationModel disaster) {

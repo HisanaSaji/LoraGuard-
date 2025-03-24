@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:lora2/core/models/alert_model.dart';
+import 'package:lora2/features/alerts/models/alert_model.dart';
 import 'package:lora2/core/theme/app_theme.dart';
 
 class AlertCard extends StatelessWidget {
@@ -56,29 +56,45 @@ class AlertCard extends StatelessWidget {
   }
 
   Widget _buildHeader() {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.2),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-      ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            color: Colors.red,
-            size: 24,
-          ),
-          const SizedBox(width: 12),
           Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  alert.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  DateFormat('MMM d, y HH:mm').format(alert.timestamp),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _getSeverityColor(alert.severity),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Text(
-              alert.location,
+              alert.severity.toUpperCase(),
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -86,5 +102,18 @@ class AlertCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Color _getSeverityColor(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'high':
+        return Colors.red;
+      case 'medium':
+        return Colors.orange;
+      case 'low':
+        return Colors.yellow;
+      default:
+        return Colors.blue;
+    }
   }
 } 

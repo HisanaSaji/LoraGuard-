@@ -1,12 +1,7 @@
-import 'package:lora2/core/models/alert_model.dart';
+import 'package:lora2/features/alerts/models/alert_model.dart';
 
 abstract class AlertRepository {
-  Future<List<AlertModel>> getActiveAlerts();
-  Future<List<AlertModel>> getAllAlerts();
-  Future<AlertModel> getAlertById(String id);
-  Future<AlertModel> addAlert({
-    required String location,
-    required String description,
-  });
+  Future<List<AlertModel>> getAlerts();
   Future<void> deleteAlert(String id);
+  Future<void> addAlert({required String location, required String description});
 } 

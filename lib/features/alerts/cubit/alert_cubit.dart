@@ -1,15 +1,45 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lora2/features/alerts/models/alert_model.dart';
+import 'package:lora2/features/alerts/domain/alert_repository.dart';
+import 'package:lora2/features/alerts/cubit/alert_state.dart';
+
 class AlertCubit extends Cubit<AlertState> {
-  AlertCubit() : super(const AlertState()) {
+  final AlertRepository _repository;
+
+  AlertCubit(this._repository) : super(AlertState.initial()) {
     print('AlertCubit: Initialized');
+    loadActiveAlerts();
+  }
+
+  Future<void> loadActiveAlerts() async {
+    print('AlertCubit: Loading active alerts');
+    emit(state.copyWith(isLoading: true, hasError: false));
+    
+    try {
+      final alerts = await _repository.getAlerts();
+      emit(state.copyWith(
+        alerts: alerts,
+        isLoading: false,
+      ));
+      print('AlertCubit: Loaded ${alerts.length} alerts');
+    } catch (e) {
+      print('AlertCubit: Error loading alerts: $e');
+      emit(state.copyWith(
+        isLoading: false,
+        hasError: true,
+        errorMessage: 'Failed to load alerts: $e',
+      ));
+    }
   }
 
   void addAlert({required String location, required String description}) {
     print('AlertCubit: Adding new alert for location: $location');
-    final newAlert = Alert(
+    final newAlert = AlertModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      location: location,
+      title: location,
       description: description,
       timestamp: DateTime.now(),
+      severity: 'info',
     );
     
     emit(state.copyWith(
@@ -18,12 +48,21 @@ class AlertCubit extends Cubit<AlertState> {
     print('AlertCubit: Alert added successfully. Total alerts: ${state.alerts.length}');
   }
 
-  void removeAlert(String id) {
+  Future<void> deleteAlert(String id) async {
     print('AlertCubit: Removing alert with id: $id');
-    emit(state.copyWith(
-      alerts: state.alerts.where((alert) => alert.id != id).toList(),
-    ));
-    print('AlertCubit: Alert removed successfully. Remaining alerts: ${state.alerts.length}');
+    try {
+      await _repository.deleteAlert(id);
+      emit(state.copyWith(
+        alerts: state.alerts.where((alert) => alert.id != id).toList(),
+      ));
+      print('AlertCubit: Alert removed successfully');
+    } catch (e) {
+      print('AlertCubit: Error removing alert: $e');
+      emit(state.copyWith(
+        hasError: true,
+        errorMessage: 'Failed to remove alert: $e',
+      ));
+    }
   }
 
   void clearAlerts() {
