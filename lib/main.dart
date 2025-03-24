@@ -159,25 +159,35 @@ class _LoRaGuardAppState extends State<LoRaGuardApp> {
   }
 }
 
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
   @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> with AutomaticKeepAliveClientMixin {
+  final Map<NavigationTab, Widget> _screens = {
+    NavigationTab.alerts: const AlertsScreen(),
+    NavigationTab.emergency: const EmergencyScreen(),
+    NavigationTab.map: const MapScreen(),
+    NavigationTab.settings: const SettingsScreen(),
+  };
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       body: BlocBuilder<NavigationCubit, NavigationTab>(
         builder: (context, tab) {
           print('Current tab: ${tab.name}');
-          switch (tab) {
-            case NavigationTab.alerts:
-              return const AlertsScreen();
-            case NavigationTab.emergency:
-              return const EmergencyScreen();
-            case NavigationTab.map:
-              return const MapScreen();
-            case NavigationTab.settings:
-              return const SettingsScreen();
-          }
+          return IndexedStack(
+            index: tab.index,
+            children: _screens.values.toList(),
+          );
         },
       ),
       bottomNavigationBar: const _BottomNavBar(),

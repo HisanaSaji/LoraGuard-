@@ -220,19 +220,19 @@ class FirebaseLocationRepository {
       if (lastNotifiedLocationJson != null) {
         final lastNotifiedLocation = LocationModel.fromJson(jsonDecode(lastNotifiedLocationJson));
         
-        // Check if location has changed significantly (e.g., more than 10 meters)
+        // Check if location has changed significantly (now using 50 meters threshold)
         final hasSignificantChange = _calculateDistance(
           lastNotifiedLocation.latitude,
           lastNotifiedLocation.longitude,
           newLocation.latitude,
           newLocation.longitude
-        ) > 10; // 10 meters threshold
+        ) > 50; // Changed from 10 to 50 meters threshold
         
         shouldNotify = hasSignificantChange;
       }
       
       if (shouldNotify) {
-        print('FirebaseLocationRepository: Significant location change detected, sending notification');
+        print('FirebaseLocationRepository: Significant location change detected (>50m), sending notification');
         
         // Create notification payload
         final Map<String, dynamic> payload = {

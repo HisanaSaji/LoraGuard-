@@ -51,13 +51,17 @@ class AlertCubit extends Cubit<AlertState> {
   Future<void> deleteAlert(String id) async {
     print('AlertCubit: Removing alert with id: $id');
     try {
+      // Update the state first for UI responsiveness
+      final updatedAlerts = state.alerts.where((alert) => alert.id != id).toList();
+      emit(state.copyWith(alerts: updatedAlerts));
+      
+      // Then update the repository
       await _repository.deleteAlert(id);
-      emit(state.copyWith(
-        alerts: state.alerts.where((alert) => alert.id != id).toList(),
-      ));
-      print('AlertCubit: Alert removed successfully');
+      print('AlertCubit: Alert removed successfully. Remaining alerts: ${updatedAlerts.length}');
     } catch (e) {
       print('AlertCubit: Error removing alert: $e');
+      // Reload alerts to ensure UI is in sync with repository
+      await loadActiveAlerts();
       emit(state.copyWith(
         hasError: true,
         errorMessage: 'Failed to remove alert: $e',

@@ -234,23 +234,6 @@ class _AlertsScreenState extends State<AlertsScreen> {
                 onDismissed: (direction) {
                   // Delete the alert
                   context.read<AlertCubit>().deleteAlert(alert.id);
-                  
-                  // Show a snackbar
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Alert deleted'),
-                      backgroundColor: AppTheme.darkGrey,
-                      action: SnackBarAction(
-                        label: 'UNDO',
-                        textColor: AppTheme.primaryOrange,
-                        onPressed: () {
-                          // Reload alerts to restore the deleted alert
-                          // In a real app, you would implement an undo feature
-                          context.read<AlertCubit>().loadActiveAlerts();
-                        },
-                      ),
-                    ),
-                  );
                 },
                 child: AlertCard(
                   alert: alert,

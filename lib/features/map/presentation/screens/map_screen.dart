@@ -23,7 +23,7 @@ class MapScreen extends StatefulWidget {
   _MapScreenState createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with AutomaticKeepAliveClientMixin {
   // Repository
   late FirebaseLocationRepository _locationRepository;
   
@@ -50,7 +50,10 @@ class _MapScreenState extends State<MapScreen> {
   // Notification handling
   LatLng? _notificationTargetLocation;
   String? _notificationTargetDisasterId;
-  
+
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
@@ -119,28 +122,121 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<String> _getPlaceNameFromCoordinates(double latitude, double longitude) async {
-    try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(latitude, longitude);
-      if (placemarks.isNotEmpty) {
-        Placemark place = placemarks[0];
-        // Format: locality, subAdministrativeArea
-        // Example: "Palayam, Thiruvananthapuram"
-        String locationName = '';
-        if (place.locality?.isNotEmpty == true) {
-          locationName = place.locality!;
-        }
-        if (place.subAdministrativeArea?.isNotEmpty == true) {
-          if (locationName.isNotEmpty) {
-            locationName += ', ';
-          }
-          locationName += place.subAdministrativeArea!;
-        }
-        return locationName.isNotEmpty ? locationName : 'Unknown Location';
-      }
-    } catch (e) {
-      print('Error getting place name: $e');
+    print('Attempting to get place name for coordinates: $latitude, $longitude');
+    
+    // Validate coordinates
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      print('Invalid coordinates detected: lat=$latitude, lng=$longitude');
+      return 'Invalid Location';
     }
-    return 'Unknown Location';
+
+    // Maximum number of retries
+    int maxRetries = 3;
+    int currentTry = 0;
+    
+    while (currentTry < maxRetries) {
+      try {
+        currentTry++;
+        print('Geocoding attempt $currentTry of $maxRetries');
+        
+        // Add timeout to geocoding request
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          latitude,
+          longitude,
+          localeIdentifier: 'en_US', // Force English locale
+        ).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            print('Geocoding request timed out');
+            throw TimeoutException('Geocoding request timed out');
+          },
+        );
+
+        print('Received ${placemarks.length} placemarks from geocoding service');
+        
+        if (placemarks.isEmpty) {
+          print('No placemarks returned from geocoding service');
+          if (currentTry < maxRetries) {
+            print('Retrying...');
+            await Future.delayed(Duration(seconds: 1)); // Wait before retry
+            continue;
+          }
+          return 'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
+        }
+
+        Placemark place = placemarks[0];
+        
+        // Debug print all available fields
+        print('''Detailed placemark data:
+          name: ${place.name}
+          street: ${place.street}
+          locality (city): ${place.locality}
+          subLocality: ${place.subLocality}
+          subAdministrativeArea (district): ${place.subAdministrativeArea}
+          administrativeArea (state): ${place.administrativeArea}
+          postalCode: ${place.postalCode}
+          country: ${place.country}
+          isoCountryCode: ${place.isoCountryCode}
+        ''');
+
+        // Build location name with all available components
+        List<String> locationParts = [];
+        
+        // Try district first as it's often most reliable
+        if (place.subAdministrativeArea?.isNotEmpty == true) {
+          locationParts.add(place.subAdministrativeArea!);
+        }
+        // Then try city
+        else if (place.locality?.isNotEmpty == true) {
+          locationParts.add(place.locality!);
+        }
+        // Then try subLocality
+        else if (place.subLocality?.isNotEmpty == true) {
+          locationParts.add(place.subLocality!);
+        }
+        
+        // Add state/region if available and not already included
+        if (place.administrativeArea?.isNotEmpty == true && 
+            !locationParts.contains(place.administrativeArea)) {
+          locationParts.add(place.administrativeArea!);
+        }
+        
+        // Add country as last resort if we have nothing else
+        if (locationParts.isEmpty && place.country?.isNotEmpty == true) {
+          locationParts.add(place.country!);
+        }
+
+        // If we have location parts, join them
+        if (locationParts.isNotEmpty) {
+          String locationName = locationParts.join(", ");
+          print('Successfully generated location name: $locationName');
+          return locationName;
+        }
+
+        // If we get here with no location parts, return coordinates
+        return 'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
+
+      } catch (e, stackTrace) {
+        print('Error during geocoding attempt $currentTry:');
+        print('Error: $e');
+        print('Stack trace: $stackTrace');
+        
+        if (currentTry < maxRetries) {
+          print('Retrying after error...');
+          await Future.delayed(Duration(seconds: 1)); // Wait before retry
+          continue;
+        }
+        
+        if (e is TimeoutException) {
+          return 'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
+        }
+        
+        return 'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
+      }
+    }
+    
+    // If we get here, all retries failed
+    return 'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
   }
 
   void _setupFirebaseListeners() {
@@ -185,22 +281,37 @@ class _MapScreenState extends State<MapScreen> {
           if (!_initialLoad) {
             print('MapScreen: New location detected at $placeName');
             
-            // Add alert with place name
+            // Create description based on whether we got a place name or coordinates
+            String description;
+            if (placeName.startsWith('Coordinates:')) {
+              description = 'DISASTER DETECTED at $placeName';
+            } else {
+              description = 'DISASTER DETECTED in $placeName';
+            }
+            
+            // Add alert with place name and description
             if (mounted) {
               context.read<AlertCubit>().addAlert(
                 location: placeName,
-                description: 'DISASTER DETECTED in $placeName',
+                description: description,
               );
               
               // Show notification
               NotificationService().showNotification(
                 title: 'Location Update',
-                body: 'New disaster location detected in $placeName',
+                body: description,
               );
             }
           }
         } catch (e) {
           print('MapScreen: Error processing new location: $e');
+          // Add alert with error state
+          if (mounted && !_initialLoad) {
+            context.read<AlertCubit>().addAlert(
+              location: 'Error',
+              description: 'DISASTER DETECTED - Location Error',
+            );
+          }
         }
 
         _initialLoad = false;
@@ -267,6 +378,7 @@ class _MapScreenState extends State<MapScreen> {
   
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Disaster Map'),

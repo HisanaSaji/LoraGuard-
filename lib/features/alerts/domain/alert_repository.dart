@@ -4,4 +4,5 @@ abstract class AlertRepository {
   Future<List<AlertModel>> getAlerts();
   Future<void> deleteAlert(String id);
   Future<void> addAlert({required String location, required String description});
+  Future<void> restoreAlert(AlertModel alert);
 } 
