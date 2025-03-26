@@ -218,9 +218,14 @@ class _MapScreenState extends State<MapScreen> with AutomaticKeepAliveClientMixi
         // Move map to new location if we have a controller
         if (_mapController != null && _isMapReady) {
           print('MapScreen: Moving map to new location: ${latestLocation.latitude}, ${latestLocation.longitude}');
+          
+          // Store current zoom level before moving
+          final currentZoom = _mapController.camera.zoom;
+          
+          // Move to new location but maintain current zoom level
           _mapController.move(
             LatLng(latestLocation.latitude, latestLocation.longitude),
-            13.0
+            currentZoom  // Use current zoom instead of fixed value
           );
         }
 
@@ -305,18 +310,21 @@ class _MapScreenState extends State<MapScreen> with AutomaticKeepAliveClientMixi
   void _centerMapOnDisaster() {
     print('MapScreen: Centering map on disaster');
     
+    // Get current zoom level
+    final currentZoom = _mapController.camera.zoom;
+    
     // If we have a current disaster, center on that
     if (_currentDisaster != null) {
       _mapController.move(
         LatLng(_currentDisaster!.latitude, _currentDisaster!.longitude),
-        13.0,
+        currentZoom, // Use current zoom instead of fixed value
       );
     } 
     // Otherwise center on the most recent location
     else if (_locations.isNotEmpty) {
       _mapController.move(
         LatLng(_locations.first.latitude, _locations.first.longitude),
-        13.0,
+        currentZoom, // Use current zoom instead of fixed value
       );
     }
   }
@@ -401,9 +409,12 @@ class _MapScreenState extends State<MapScreen> with AutomaticKeepAliveClientMixi
                 onPressed: () {
                   if (_locations.isNotEmpty) {
                     try {
+                      // Store current zoom level
+                      final currentZoom = _mapController.camera.zoom;
+                      
                       _mapController.move(
                         LatLng(_locations.first.latitude, _locations.first.longitude),
-                        13.0
+                        currentZoom  // Use current zoom instead of fixed value
                       );
                     } catch (e) {
                       print('MapScreen: Error moving map: $e');
