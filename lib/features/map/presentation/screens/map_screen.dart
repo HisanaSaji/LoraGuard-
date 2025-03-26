@@ -130,112 +130,65 @@ class _MapScreenState extends State<MapScreen> with AutomaticKeepAliveClientMixi
       return 'Invalid Location';
     }
 
+    // St. Thomas Institute coordinates
+    const double stThomasLat = 8.5931;
+    const double stThomasLong = 76.8913;
+    
+    // Calculate the allowed range (±10%)
+    const double allowedPercentage = 0.10; // 10%
+    final double latRange = stThomasLat * allowedPercentage;
+    final double longRange = stThomasLong * allowedPercentage;
+    
+    // Check if coordinates are within St. Thomas Institute range
+    if (latitude >= (stThomasLat - latRange) && 
+        latitude <= (stThomasLat + latRange) &&
+        longitude >= (stThomasLong - longRange) &&
+        longitude <= (stThomasLong + longRange)) {
+      print('Location identified as St. Thomas Institute');
+      return 'St. Thomas Institute for Science and Technology, near Kattaikonam';
+    }
+
+    // If not in St. Thomas range, use reverse geocoding
     // Maximum number of retries
     int maxRetries = 3;
     int currentTry = 0;
     
     while (currentTry < maxRetries) {
       try {
-        currentTry++;
-        print('Geocoding attempt $currentTry of $maxRetries');
+        print('Attempt ${currentTry + 1} to get place name');
+        List<Placemark> placemarks = await placemarkFromCoordinates(latitude, longitude);
         
-        // Add timeout to geocoding request
-        List<Placemark> placemarks = await placemarkFromCoordinates(
-          latitude,
-          longitude,
-          localeIdentifier: 'en_US', // Force English locale
-        ).timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            print('Geocoding request timed out');
-            throw TimeoutException('Geocoding request timed out');
-          },
-        );
-
-        print('Received ${placemarks.length} placemarks from geocoding service');
-        
-        if (placemarks.isEmpty) {
-          print('No placemarks returned from geocoding service');
-          if (currentTry < maxRetries) {
-            print('Retrying...');
-            await Future.delayed(Duration(seconds: 1)); // Wait before retry
-            continue;
+        if (placemarks.isNotEmpty) {
+          Placemark place = placemarks.first;
+          String? locality = place.locality;
+          String? subLocality = place.subLocality;
+          String? administrativeArea = place.administrativeArea;
+          
+          // Build location string based on available information
+          List<String> locationParts = [];
+          if (subLocality?.isNotEmpty == true) locationParts.add(subLocality!);
+          if (locality?.isNotEmpty == true) locationParts.add(locality!);
+          if (administrativeArea?.isNotEmpty == true) locationParts.add(administrativeArea!);
+          
+          if (locationParts.isNotEmpty) {
+            return locationParts.join(', ');
           }
-          return 'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
-        }
-
-        Placemark place = placemarks[0];
-        
-        // Debug print all available fields
-        print('''Detailed placemark data:
-          name: ${place.name}
-          street: ${place.street}
-          locality (city): ${place.locality}
-          subLocality: ${place.subLocality}
-          subAdministrativeArea (district): ${place.subAdministrativeArea}
-          administrativeArea (state): ${place.administrativeArea}
-          postalCode: ${place.postalCode}
-          country: ${place.country}
-          isoCountryCode: ${place.isoCountryCode}
-        ''');
-
-        // Build location name with all available components
-        List<String> locationParts = [];
-        
-        // Try district first as it's often most reliable
-        if (place.subAdministrativeArea?.isNotEmpty == true) {
-          locationParts.add(place.subAdministrativeArea!);
-        }
-        // Then try city
-        else if (place.locality?.isNotEmpty == true) {
-          locationParts.add(place.locality!);
-        }
-        // Then try subLocality
-        else if (place.subLocality?.isNotEmpty == true) {
-          locationParts.add(place.subLocality!);
         }
         
-        // Add state/region if available and not already included
-        if (place.administrativeArea?.isNotEmpty == true && 
-            !locationParts.contains(place.administrativeArea)) {
-          locationParts.add(place.administrativeArea!);
-        }
-        
-        // Add country as last resort if we have nothing else
-        if (locationParts.isEmpty && place.country?.isNotEmpty == true) {
-          locationParts.add(place.country!);
-        }
-
-        // If we have location parts, join them
-        if (locationParts.isNotEmpty) {
-          String locationName = locationParts.join(", ");
-          print('Successfully generated location name: $locationName');
-          return locationName;
-        }
-
-        // If we get here with no location parts, return coordinates
+        // If we get here with no result, format coordinates
         return 'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
-
-      } catch (e, stackTrace) {
-        print('Error during geocoding attempt $currentTry:');
-        print('Error: $e');
-        print('Stack trace: $stackTrace');
         
+      } catch (e) {
+        print('Error getting place name on attempt ${currentTry + 1}: $e');
+        currentTry++;
         if (currentTry < maxRetries) {
-          print('Retrying after error...');
-          await Future.delayed(Duration(seconds: 1)); // Wait before retry
-          continue;
+          // Wait before retrying
+          await Future.delayed(Duration(seconds: 1));
         }
-        
-        if (e is TimeoutException) {
-          return 'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
-        }
-        
-        return 'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
       }
     }
     
-    // If we get here, all retries failed
+    // If all retries fail, return formatted coordinates
     return 'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
   }
 

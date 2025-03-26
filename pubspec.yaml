@@ -42,7 +42,7 @@ dependencies:
   provider: ^6.1.2
   flutter_local_notifications: ^16.3.2
   cached_network_image: ^3.3.0
-  url_launcher: ^6.2.4
+  url_launcher: ^6.3.1
   shared_preferences: ^2.2.0
   flutter_svg: ^2.0.10  # Added for SVG support
   equatable: ^2.0.5
